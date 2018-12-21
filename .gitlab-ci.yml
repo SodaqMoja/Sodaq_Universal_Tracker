@@ -1,0 +1,38 @@
+image: actinius/docker-arduino-ci:latest
+
+variables:
+  DOCKER_DRIVER: overlay
+  TARGET: Sodaq_Universal_Tracker
+  BINDIR: $CI_PROJECT_DIR/bin
+  JSONURL: http://downloads.sodaq.net/package_sodaq_samd_index.json
+  BOARD1: SODAQ:samd:sodaq_one
+  BOARD2: SODAQ:samd:sodaq_sara
+  BOARD3: SODAQ:samd:sodaq_sff
+
+stages:
+  - build_1_6_19
+
+before_script:
+  #- env
+  #- pwd
+  #- bash ./make-version.sh
+  #- cd ..
+  - arduino --pref sketchbook.path=$PWD --save-prefs
+  - arduino --pref compiler.warning_level=more --save-prefs
+  - arduino --pref boardsmanager.additional.urls=${JSONURL} --save-prefs
+
+build_1_6_19:
+  stage: build_1_6_19
+  artifacts:
+    paths:
+      - $BINDIR/${TARGET}*.bin
+  script:
+    #- env
+    #- pwd
+    - rm -rf ${BINDIR}
+    - mkdir ${BINDIR}
+    - arduino --install-boards "SODAQ:samd:1.6.19"
+    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD1} ${TARGET}/${TARGET}.ino
+    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD2} ${TARGET}/${TARGET}.ino
+    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD3} ${TARGET}/${TARGET}.ino
+    - mv ${BINDIR}/${TARGET}.ino.bin ${BINDIR}/${TARGET}-$(git describe --tags --dirty 2> /dev/null).bin
