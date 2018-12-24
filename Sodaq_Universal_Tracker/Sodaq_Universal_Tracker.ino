@@ -389,7 +389,7 @@ void transmit()
         cayenneRecord.addTemperature(3, temp);
 
         // Copy out the formatted record
-        network.transmit(cayenneRecord.getBuffer(), cayenneRecord.getSize());
+        network.transmit(cayenneRecord.getBuffer(), cayenneRecord.getSize(), ((uint32_t)params.getRXtimeout() * 1000));
     }
     else {
         const size_t maxPayloadSize = 51;
@@ -435,7 +435,7 @@ void transmit()
             sendBufferSize += record.getSize();
         }
 
-        network.transmit(sendBuffer, sendBufferSize);
+        network.transmit(sendBuffer, sendBufferSize, ((uint32_t)params.getRXtimeout() * 1000));
     }
 }
 

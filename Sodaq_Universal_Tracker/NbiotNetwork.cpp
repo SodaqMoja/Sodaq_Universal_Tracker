@@ -140,7 +140,7 @@ void NbiotNetwork::setActive(bool on)
     }
 }
 
-uint8_t NbiotNetwork::transmit(uint8_t * buffer, uint8_t size)
+uint8_t NbiotNetwork::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
     setActive(true);
 
@@ -158,7 +158,7 @@ uint8_t NbiotNetwork::transmit(uint8_t * buffer, uint8_t size)
     size_t lengthSent = nbiot.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
 
     // wait for data
-    if (nbiot.waitForUDPResponse()) {
+    if (nbiot.waitForUDPResponse(rxTimeout)) {
         debugPrintLn("Received UDP response...");
         while (nbiot.hasPendingUDPBytes()) {
             uint8_t data[128];

@@ -53,7 +53,7 @@ public:
 
     bool init(Uart& modemStream, DataReceiveCallback callback, uint32_t(*getNow)(), InitConsoleMessages messages, InitJoin join);
 
-    uint8_t transmit(uint8_t* buffer, uint8_t size);
+    uint8_t transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout);
 
     void loopHandler();
 

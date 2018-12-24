@@ -109,21 +109,21 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
     }
 }
 
-uint8_t Network::transmit(uint8_t * buffer, uint8_t size)
+uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_NBIOT_N2: {
-        return nbiotNetwork.transmit(buffer, size);
+        return nbiotNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_LORA: {
         return LoRa.transmit(buffer, size);
     }
     case NETWORK_TYPE_2G_3G: {
-        return network3G.transmit(buffer, size);
+        return network3G.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_LTEM: {
-        return lteNetwork.transmit(buffer, size);
+        return lteNetwork.transmit(buffer, size, rxTimeout);
     return 0;
     }
     default: {

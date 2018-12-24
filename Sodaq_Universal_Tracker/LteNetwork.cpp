@@ -126,7 +126,7 @@ void LteNetwork::setActive(bool on)
     }
 }
 
-uint8_t LteNetwork::transmit(uint8_t * buffer, uint8_t size)
+uint8_t LteNetwork::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
     setActive(true);
 
@@ -144,7 +144,7 @@ uint8_t LteNetwork::transmit(uint8_t * buffer, uint8_t size)
     size_t lengthSent = lteM.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
 
     // wait for data
-    if (lteM.waitForUDPResponse()) {
+    if (lteM.waitForUDPResponse(rxTimeout)) {
         debugPrintLn("Received UDP response...");
         while (lteM.hasPendingUDPBytes()) {
             uint8_t data[128];
