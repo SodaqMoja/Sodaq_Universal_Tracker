@@ -73,6 +73,7 @@ struct ConfigParams
     char _apnPassword[32 + 1];
 
     uint8_t _band;
+    uint8_t _rxTimeout;
 
     char _targetIP[16]; // 4x3 = 12, + 3 dots, + nullchar = 16
 

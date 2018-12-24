@@ -104,6 +104,7 @@ void ConfigParams::reset()
     _apnPassword[sizeof(_apnPassword) - 1] = '\0';
 
     _band = 0;
+    _rxTimeout = 15;
 
     memcpy(_targetIP, "0.0.0.0", sizeof("0.0.0.0"));
     _targetIP[sizeof(_targetIP) - 1] = '\0';
@@ -200,6 +201,7 @@ static const Command args[] = {
     { "Band                      ", "bnd=", Command::set_uint8, Command::show_uint8, &params._band },
     { "Target IP                 ", "ip=",  Command::set_string, Command::show_string, params._targetIP, sizeof(params._targetIP) },
     { "Target port               ", "prt=", Command::set_uint16, Command::show_uint16, &params._targetPort },
+    { "Response Timeout          ", "rxto=", Command::set_uint8, Command::show_uint8, &params._rxTimeout },
 #endif
     { "Misc                      ", 0,      0,                  Command::show_title, 0 },
     { "Cayenne LPP (OFF=0 / ON=1)", "cay=", Command::set_uint8, Command::show_uint8, &params._isCayennePayloadEnabled },
