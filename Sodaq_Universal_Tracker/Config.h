@@ -139,6 +139,7 @@ public:
     uint8_t getCID() const { return _cid; }
 
     uint8_t getBand() const { return _band; }
+    uint8_t getRXtimeout() const { return _rxTimeout; }
 
     const char* getTargetIP() const { return _targetIP; }
 
