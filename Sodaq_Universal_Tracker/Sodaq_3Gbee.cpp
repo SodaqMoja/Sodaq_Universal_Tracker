@@ -1735,6 +1735,12 @@ GSMResponseTypes Sodaq_3Gbee::_usordParser(GSMResponseTypes& response, const cha
 // NOTE: if the modem hasn't reported available data, it blocks for up to 10 seconds waiting.
 size_t Sodaq_3Gbee::socketReceive(uint8_t socket, uint8_t* buffer, size_t size)
 {
+    socketReceive(socket, buffer, size, 10000);
+}
+
+// Overload with a parameter to specify the maximum blocking time
+size_t Sodaq_3Gbee::socketReceive(uint8_t socket, uint8_t* buffer, size_t size, uint32_t rxTimeout)
+{
     if (socket >= ARRAY_SIZE(_socketPendingBytes)) {
         return 0;
     }
@@ -1742,7 +1748,7 @@ size_t Sodaq_3Gbee::socketReceive(uint8_t socket, uint8_t* buffer, size_t size)
     // if there are no data available yet, block for some seconds while checking
     uint32_t start = millis();
     uint32_t delay_count = 50;
-    while (_socketPendingBytes[socket] == 0 && !is_timedout(start, 10000)) {
+    while (_socketPendingBytes[socket] == 0 && !is_timedout(start, rxTimeout)) {
         isAlive();
         sodaq_wdt_safe_delay(delay_count);
         if (delay_count < 2000) {

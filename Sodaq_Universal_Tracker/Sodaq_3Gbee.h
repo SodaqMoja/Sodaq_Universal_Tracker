@@ -172,6 +172,9 @@ public:
     // NOTE: if the modem hasn't reported available data, it blocks for up to 10 seconds waiting.
     size_t socketReceive(uint8_t socket, uint8_t* buffer, size_t size);
 
+    // Overload with a parameter to specify the maximum blocking time
+    size_t socketReceive(uint8_t socket, uint8_t* buffer, size_t size, uint32_t rxTimeout);
+
     // Returns the number of bytes pending in the read buffer of the given socket .
     size_t socketBytesPending(uint8_t socket);
 

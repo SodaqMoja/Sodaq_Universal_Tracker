@@ -132,7 +132,7 @@ uint8_t Network3G::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
         sodaq_3gbee.socketSend(socket, buffer, size);
 
         uint8_t receiveBuffer[128];
-        size_t bytesRead = sodaq_3gbee.socketReceive(socket, receiveBuffer, sizeof(receiveBuffer));
+        size_t bytesRead = sodaq_3gbee.socketReceive(socket, receiveBuffer, sizeof(receiveBuffer), rxTimeout);
 
         _callback(receiveBuffer, bytesRead);
 
