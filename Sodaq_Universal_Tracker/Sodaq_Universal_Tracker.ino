@@ -144,6 +144,8 @@ static UdpHeader defaultUdpHeader;
 ReportDataRecord pendingReportDataRecord;
 bool isPendingReportDataRecordNew; // this is set to true only when pendingReportDataRecord is written by the delegate
 
+uint16_t navPvtCounter = 0;
+
 volatile bool minuteFlag;
 volatile bool isOnTheMoveActivated;
 volatile uint32_t lastOnTheMoveActivationTimestamp;
@@ -628,6 +630,7 @@ void setNow(uint32_t newEpoch)
 {
     uint32_t currentEpoch = getNow();
 
+    debugPrintln();
     debugPrint("Setting RTC from ");
     debugPrint(currentEpoch);
     debugPrint(" to ");
@@ -868,6 +871,22 @@ void delegateNavPvt(NavigationPositionVelocityTimeSolution* NavPvt)
         return;
     }
 
+    // print a '.' every second
+    debugPrint(".");
+    navPvtCounter++;
+
+    // print the counter value every 10s
+    if ((navPvtCounter % 10) == 0) {
+        debugPrint(navPvtCounter);
+        debugPrint("s");
+    }
+
+    // newline every 30s
+    if ((navPvtCounter % 30) == 0) {
+        debugPrintln();
+    }
+
+
     // note: db_printf gets enabled/disabled according to the "DEBUG" define (ublox.cpp)
     ublox.db_printf("%4.4d-%2.2d-%2.2d %2.2d:%2.2d:%2.2d.%d valid=%2.2x lat=%d lon=%d sats=%d fixType=%2.2x\r\n",
         NavPvt->year, NavPvt->month, NavPvt->day,
@@ -894,6 +913,10 @@ void delegateNavPvt(NavigationPositionVelocityTimeSolution* NavPvt)
         pendingReportDataRecord.setSpeed((NavPvt->gSpeed * 36) / 10000); // mm/s converted to km/h
 
         isPendingReportDataRecordNew = true;
+
+        debugPrint(navPvtCounter);
+        debugPrintln("s");
+        navPvtCounter = 0;
     }
 }
 
