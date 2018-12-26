@@ -916,7 +916,6 @@ void delegateNavPvt(NavigationPositionVelocityTimeSolution* NavPvt)
 
         debugPrint(navPvtCounter);
         debugPrintln("s");
-        navPvtCounter = 0;
     }
 }
 
@@ -937,6 +936,7 @@ bool getGpsFixAndTransmit()
 
     bool isSuccessful = false;
     setGpsActive(true);
+    navPvtCounter = 0;
 
     pendingReportDataRecord.setSatelliteCount(0); // reset satellites to use them as a quality metric in the loop
     uint32_t startTime = getNow();
