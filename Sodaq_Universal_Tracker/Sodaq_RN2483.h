@@ -66,7 +66,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define DEFAULT_PWR_IDX_868 1
 #define DEFAULT_PWR_IDX_915 5
 #define DEFAULT_SF_868 12
-#define DEFAULT_SF_915 12
+#define DEFAULT_SF_915 9
 
 #if defined(ARDUINO_ARCH_AVR)
 typedef HardwareSerial SerialType;
