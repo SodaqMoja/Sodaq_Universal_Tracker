@@ -642,12 +642,13 @@ bool Sodaq_nbIOT::connect(const char* apn, const char* cdp, const char* forceOpe
     }
 #endif
 
-    if (!setRadioActive(false)) {
+    // make sure radio is on
+    if (!setRadioActive(true)) {
         return false;
     }
 
-     // TODO turn on
-     if (!setIndicationsActive(false)) {
+    // TODO turn on
+    if (!setIndicationsActive(false)) {
         return false;
     }
 
@@ -656,10 +657,6 @@ bool Sodaq_nbIOT::connect(const char* apn, const char* cdp, const char* forceOpe
     }
 
     if (!_isSaraR4XX && !setCdp(cdp)) {
-        return false;
-    }
-
-    if (!setRadioActive(true)) {
         return false;
     }
 
