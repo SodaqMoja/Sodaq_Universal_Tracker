@@ -91,9 +91,6 @@ void ConfigParams::reset()
     memset(_apn, 0x30, sizeof(_apn) - 1);
     _apn[sizeof(_apn) - 1] = '\0';
 
-    memset(_cdp, 0x30, sizeof(_cdp) - 1);
-    _cdp[sizeof(_cdp) - 1] = '\0';
-
     memset(_forceOperator, 0x30, sizeof(_forceOperator) - 1);
     _forceOperator[sizeof(_forceOperator) - 1] = '\0';
 
@@ -193,7 +190,6 @@ static const Command args[] = {
     { "Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, LTE-M = 4, 2G/3G = 5) ", "ntype=", Command::set_uint8, Command::show_uint8, &params._networkType },
     { "All Things Talk Token     ", "att=", Command::set_string, Command::show_string, params._attToken, sizeof(params._attToken) },
     { "APN                       ", "apn=", Command::set_string, Command::show_string, params._apn, sizeof(params._apn) },
-    { "CDP                       ", "cdp=", Command::set_string, Command::show_string, params._cdp, sizeof(params._cdp) },
     { "Force Operator            ", "opr=", Command::set_string, Command::show_string, params._forceOperator, sizeof(params._forceOperator) },
     { "CID                       ", "cid=", Command::set_uint8, Command::show_uint8, &params._cid },
     { "APN user                  ", "apnu=", Command::set_string, Command::show_string, params._apnUser, sizeof(params._apnUser) },

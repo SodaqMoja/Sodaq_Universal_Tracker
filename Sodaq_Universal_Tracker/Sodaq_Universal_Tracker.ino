@@ -114,7 +114,6 @@ Sodaq_LSM303AGR accelerometer;
 Network network;
 
 #define DEFAULT_APN "nb.inetd.gdsp"
-#define DEFAULT_CDP "172.16.14.22"
 #define DEFAULT_FORCE_OPERATOR "20404"
 #define DEFAULT_BAND 20
 
@@ -1185,13 +1184,6 @@ void onConfigReset(void)
     BUILD_BUG_ON(sizeof(DEFAULT_APN) > sizeof(params._apn));
 
     strcpy(params._apn, DEFAULT_APN);
-#endif
-
-#ifdef DEFAULT_CDP
-    // fail if the defined string is larger than what is expected in the config
-    BUILD_BUG_ON(sizeof(DEFAULT_CDP) > sizeof(params._cdp));
-
-    strcpy(params._cdp, DEFAULT_CDP);
 #endif
 
 #ifdef DEFAULT_FORCE_OPERATOR

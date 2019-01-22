@@ -65,7 +65,6 @@ struct ConfigParams
     char _attToken[32 + 1];
 
     char _apn[32 + 1];
-    char _cdp[32 + 1];
     char _forceOperator[32 + 1];
     uint8_t _cid;
 
@@ -128,7 +127,6 @@ public:
     const char* getNwSKeyOrAppKey() const { return _nwSKeyOrAppKey; }
 
     const char* getApn() const { return _apn; }
-    const char* getCdp() const { return _cdp; }
     const char* getForceOperator() const { return _forceOperator; }
 
     const char* getAttToken() const { return _attToken; }
