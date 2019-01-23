@@ -92,4 +92,3 @@ private:
 };
 
 #endif /* GPSFIXDATARECORD_H_ */
-

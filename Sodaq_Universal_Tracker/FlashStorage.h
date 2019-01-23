@@ -73,4 +73,3 @@ public:
 private:
   FlashClass flash;
 };
-

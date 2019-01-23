@@ -84,7 +84,7 @@ bool Sodaq_AT_Device::on()
             _onoff->on();
         }
     }
-	
+
 	setTxPowerIfAvailable(true);
 
     // wait for power up
@@ -100,7 +100,7 @@ bool Sodaq_AT_Device::on()
     if (timeout) {
         debugPrintLn("Error: No Reply from Modem");
         return false;
-    }    
+    }
 
     return isOn(); // this essentially means isOn() && isAlive()
 }

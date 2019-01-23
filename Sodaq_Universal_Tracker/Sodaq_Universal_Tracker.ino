@@ -135,7 +135,7 @@ Network network;
     #define MODEM_STREAM_RX (PIN_SERIAL1_RX)
     #define MODEM_STREAM_TX (PIN_SERIAL1_TX)
     #define DEFAULT_NETWORK_TYPE Network::NETWORK_TYPE_NOTYPE;
-#else 
+#else
     #error "No network type defined"
 #endif
 
@@ -198,10 +198,10 @@ void setup()
 
     // In case of reset (this is probably unnecessary)
     sodaq_wdt_disable();
-  
+
     // Setup the BOD33
     setupBOD33();
-    
+
     sodaq_wdt_enable(WDT_PERIOD_8X);
     sodaq_wdt_reset();
 
@@ -290,7 +290,7 @@ void setup()
         DEBUG_STREAM.end();
     }
 
-    // disable the console stream if it is not disabled by the above, 
+    // disable the console stream if it is not disabled by the above,
     // and only if it is different than the debug stream
     if ((long)&CONSOLE_STREAM != (long)&SerialUSB && ((long)&CONSOLE_STREAM != (long)&DEBUG_STREAM)) {
         CONSOLE_STREAM.flush();
@@ -1177,7 +1177,7 @@ void onConfigReset(void)
 
     strcpy(params._forceOperator, DEFAULT_FORCE_OPERATOR);
 #endif
-    
+
 #ifdef DEFAULT_APN_USER
     // fail if the defined string is larger than what is expected in the config
     BUILD_BUG_ON(sizeof(DEFAULT_APN_USER) > sizeof(params._apnUser));
@@ -1191,7 +1191,7 @@ void onConfigReset(void)
 
     strcpy(params._apnPassword, DEFAULT_APN_PASSWORD);
 #endif
-    
+
 #ifdef DEFAULT_BAND
     params._band = DEFAULT_BAND;
 #endif

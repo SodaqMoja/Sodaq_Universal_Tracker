@@ -63,7 +63,7 @@ void ReportDataRecord::init()
     for (uint16_t i = 0; i < getSize(); i++) {
         buffer[i] = 0;
     }
-    
+
     // set default value for Timestamp (used for validity check)
     setTimestamp(0xFFFFFFFF);
 }

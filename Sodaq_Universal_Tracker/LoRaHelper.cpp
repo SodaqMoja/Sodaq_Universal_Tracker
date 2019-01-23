@@ -76,8 +76,8 @@ LoRaHelper::LoRaHelper() :
 }
 
 void LoRaHelper::init(Sodaq_RN2483& rn2483, uint32_t(*getNow)())
-{ 
-    _rn2483 = &rn2483; 
+{
+    _rn2483 = &rn2483;
     _getNow = getNow;
 };
 
@@ -219,7 +219,7 @@ uint8_t LoRaHelper::transmit(uint8_t* buffer, uint8_t size, int16_t overrideLoRa
         {
         case NoError: {
             debugPrintln("Data transmitted successfully.");
-            
+
             retransmissionUpdateOnSuccess();
 
             break;
@@ -318,7 +318,7 @@ void LoRaHelper::extendSleep()
 
 void LoRaHelper::loopHandler()
 {
-    if (_isRetransmissionPending 
+    if (_isRetransmissionPending
             && (_transmissionAttemptsRemaining > 0)
             && (_getNow() - _lastTransmissionAttemptTimestamp > LORA_MIN_RETRASMISSION_BACKOFF_SEC)) {
         debugPrintln("[LoRaHelper] LoopHandler starting a retransmission.");

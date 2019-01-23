@@ -60,35 +60,35 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
         if (_diagStream) {
             nbiotNetwork.setDiag(_diagStream);
         }
-        
+
         if (_consoleStream) {
             nbiotNetwork.setConsoleStream(_consoleStream);
         }
 
         bool shouldUseR4 = (_networkType == NETWORK_TYPE_NBIOT_R4);
-        
+
         return nbiotNetwork.init(modemStream, callback, messages, join, shouldUseR4);
     }
     case NETWORK_TYPE_LORA: {
         if (_diagStream) {
             loraNetwork.setDiag(_diagStream);
         }
-        
+
         if (_consoleStream) {
             loraNetwork.setConsoleStream(_consoleStream);
         }
-        
+
         return loraNetwork.init(modemStream, callback, getNow, messages, join);
     }
     case NETWORK_TYPE_2G_3G: {
         if (_diagStream) {
             network3G.setDiag(_diagStream);
         }
-        
+
         if (_consoleStream) {
             network3G.setConsoleStream(_consoleStream);
         }
-        
+
         return network3G.init(modemStream, callback, messages, join);
     }
     case NETWORK_TYPE_LTEM: {

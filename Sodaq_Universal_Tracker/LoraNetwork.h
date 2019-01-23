@@ -59,7 +59,7 @@ public:
     // Sets the optional "Diagnostics and Debug" stream.
     void setDiag(Stream& stream) { _diagStream = &stream; }
     void setDiag(Stream* stream) { _diagStream = stream; }
-    void setConsoleStream(Stream& stream) { _consoleStream = &stream; }    
+    void setConsoleStream(Stream& stream) { _consoleStream = &stream; }
     void setConsoleStream(Stream* stream) { _consoleStream = stream; }
 
     uint32_t getBaudRate() { return _baudRate; }

@@ -60,11 +60,11 @@ void gpsFixLiFoRingBuffer_push(const GpsFixDataRecord* value)
     _data[_top] = *value;
 
     _validItemCount++;
-        
+
     // check for roll over
     if (_validItemCount > GPS_FIX_LIFO_RING_BUFFER_SIZE) {
         _validItemCount = GPS_FIX_LIFO_RING_BUFFER_SIZE;
-            
+
         _bottom = (_bottom + 1) % GPS_FIX_LIFO_RING_BUFFER_SIZE; // bump to next item
     }
 }

@@ -57,7 +57,7 @@ void GpsFixDataRecord::init()
     for (uint16_t i = 0; i < getSize(); i++) {
         buffer[i] = 0;
     }
-    
+
     // set default value for Timestamp (used for validity check)
     setTimestamp(0xFFFFFFFF);
 }
@@ -73,7 +73,7 @@ uint8_t GpsFixDataRecord::getFieldSize(uint8_t fieldIndex) const
 }
 
 void GpsFixDataRecord::updatePreviousFixValue(uint32_t now)
-{ 
-    uint32_t val = now - getTimestamp(); 
-    setPreviousFix(val > 0xFFFF ? 0xFFFF : (uint16_t)val); 
+{
+    uint32_t val = now - getTimestamp();
+    setPreviousFix(val > 0xFFFF ? 0xFFFF : (uint16_t)val);
 }

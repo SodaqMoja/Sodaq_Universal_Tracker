@@ -22,13 +22,13 @@ Just open the Arduino Serial Monitor (at 115200 baud, with line endings set to N
 
 
 Commands:
-  Show IMEI                                  (SI): 
-  Show Module version                        (SV): 
-  Commit Settings                            (CS): 
+  Show IMEI                                  (SI):
+  Show Module version                        (SV):
+  Commit Settings                            (CS):
 
 Settings:
 
-GPS                       
+GPS
   GPS (OFF=0 / ON=1)         (gps=): 1
   Fix Interval (min)         (fi=): 15
   Alt. Fix Interval (min)    (afi=): 0
@@ -40,25 +40,25 @@ GPS
   Minimum sat count          (sat=): 4
   Num Coords to Upload       (num=): 1
 
-On-the-move Functionality 
+On-the-move Functionality
   Acceleration% (100% = 8g)  (acc=): 0
   Acceleration Duration      (acd=): 0
   Fix Interval (min)         (acf=): 1
   Timeout (min)              (act=): 10
 
-Cellular                  
+Cellular
   Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, LTE-M = 4, 2G/3G = 5)  (ntype=): 4
   APN                        (apn=): m2m.internet
   CDP                        (cdp=): 172.16.14.22
   Force Operator             (opr=): 20408
   CID                        (cid=): 1
-  APN user                   (apnu=): 
-  APN password               (apnp=): 
+  APN user                   (apnu=):
+  APN password               (apnp=):
   Band                       (bnd=): 20
   Target IP                  (ip=): 0.0.0.0
   Target port                (prt=): 1
 
-Misc                      
+Misc
   Cayenne LPP (OFF=0 / ON=1) (cay=): 0
   Status LED (OFF=0 / ON=1)  (led=): 0
   Debug (OFF=0 / ON=1)       (dbg=): 0
@@ -73,12 +73,12 @@ LoRa HWEUI: 0004A30B001FB4C1
 
 
 Commands:
-  Reset DevAddr / DevEUI to the Hardware EUI (EUI): 
-  Commit Settings                            (CS): 
+  Reset DevAddr / DevEUI to the Hardware EUI (EUI):
+  Commit Settings                            (CS):
 
 Settings:
 
-GPS                       
+GPS
   GPS (OFF=0 / ON=1)         (gps=): 1
   Fix Interval (min)         (fi=): 15
   Alt. Fix Interval (min)    (afi=): 0
@@ -90,13 +90,13 @@ GPS
   Minimum sat count          (sat=): 4
   Num Coords to Upload       (num=): 1
 
-On-the-move Functionality 
+On-the-move Functionality
   Acceleration% (100% = 8g)  (acc=): 0
   Acceleration Duration      (acd=): 0
   Fix Interval (min)         (acf=): 1
   Timeout (min)              (act=): 10
 
-LoRa                      
+LoRa
   OTAA Mode (OFF=0 / ON=1)   (otaa=): 0
   Retry conn. (OFF=0 / ON=1) (retry=): 1
   ADR (OFF=0 / ON=1)         (adr=): 1
@@ -109,11 +109,11 @@ LoRa
   NWSKey / AppKey            (key=): 00000000000000000000000000000000
   Repeat Count               (rep=): 0
 
-Misc                      
+Misc
   Cayenne LPP (OFF=0 / ON=1) (cay=): 0
   Status LED (OFF=0 / ON=1)  (led=): 0
   Debug (OFF=0 / ON=1)       (dbg=): 0
-Enter command: 
+Enter command:
 ```
 
 
@@ -227,4 +227,3 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
-

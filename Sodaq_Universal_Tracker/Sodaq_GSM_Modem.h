@@ -151,7 +151,7 @@ public:
     // Store PIN
     void setPin(const char *pin);
 
-    // Returns the default baud rate of the modem. 
+    // Returns the default baud rate of the modem.
     // To be used when initializing the modem stream for the first time.
     virtual uint32_t getDefaultBaudrate() = 0;
 
@@ -236,11 +236,11 @@ public:
     // Creates a new socket for the given protocol, optionally bound to the given localPort.
     // Returns the index of the socket created or -1 in case of error.
     virtual int createSocket(Protocols protocol, uint16_t localPort = 0) = 0;
-    
+
     // Requests a connection to the given host and port, on the given socket.
     // Returns true if successful.
     virtual bool connectSocket(uint8_t socket, const char* host, uint16_t port) = 0;
-    
+
     // Sends the given buffer through the given socket.
     // Returns true if successful.
     virtual bool socketSend(uint8_t socket, const uint8_t* buffer, size_t size) = 0;
@@ -280,7 +280,7 @@ public:
 
     // ==== HTTP
 
-    // Creates an HTTP request using the (optional) given buffer and 
+    // Creates an HTTP request using the (optional) given buffer and
     // (optionally) returns the received data.
     // endpoint should include the initial "/".
     virtual size_t httpRequest(const char* server, uint16_t port, const char* endpoint,
@@ -292,7 +292,7 @@ public:
 
     // Opens an FTP connection.
     virtual bool openFtpConnection(const char* server, const char* username, const char* password, FtpModes ftpMode) = 0;
-    
+
     // Closes the FTP connection.
     virtual bool closeFtpConnection() = 0;
 
@@ -318,15 +318,15 @@ public:
     virtual bool closeFtpFile() = 0;
 
     // ==== SMS
-    
+
     // Gets an SMS list according to the given filter and puts the indexes in the "indexList".
     // Returns the number of indexes written to the list or -1 in case of error.
     virtual int getSmsList(const char* statusFilter = "ALL", int* indexList = NULL, size_t size = 0) = 0;
-    
+
     // Reads an SMS from the given index and writes it to the given buffer.
     // Returns true if successful.
     virtual bool readSms(uint8_t index, char* phoneNumber, char* buffer, size_t size) = 0;
-    
+
     // Deletes the SMS at the given index.
     virtual bool deleteSms(uint8_t index) = 0;
 

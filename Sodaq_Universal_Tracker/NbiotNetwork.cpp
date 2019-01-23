@@ -42,10 +42,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define debugPrint(...)
 #endif
 
-#ifndef consolePrint 
+#ifndef consolePrint
 #define consolePrint(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
 #define consolePrintln(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
-#endif 
+#endif
 
 // BEGIN NBiot DEFINES
 Sodaq_nbIOT nbiot;
@@ -93,7 +93,7 @@ bool NbiotNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCo
     _useR4xx = useR4xx;
 
 
-    pinMode(SARA_TX_ENABLE, OUTPUT); // may be needed for other SARA boards 
+    pinMode(SARA_TX_ENABLE, OUTPUT); // may be needed for other SARA boards
     digitalWrite(SARA_TX_ENABLE, HIGH);
 
     // the following is on by default in the nbiot library version > v1.4.1
@@ -191,7 +191,7 @@ void NbiotNetwork::loopHandler()
 void NbiotNetwork::sleep()
 {
     // goes to sleep automatically
-    
+
 }
 
 bool NbiotNetwork::getIMEI(char* buffer, size_t size)

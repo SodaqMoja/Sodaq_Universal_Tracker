@@ -101,12 +101,12 @@ bool UBlox::exists() const
  • Every Message starts with 2 Bytes: 0xB5 0x62
  • A 1 Byte Class Field follows. The Class defines the basic subset of the message
  • A 1 Byte ID Field defines the message that is to follow
- • A 2 Byte Length Field is following. Length is defined as being the length of the payload, only. 
-    It does not include Sync Chars, Length Field, Class, ID or CRC fields. 
+ • A 2 Byte Length Field is following. Length is defined as being the length of the payload, only.
+    It does not include Sync Chars, Length Field, Class, ID or CRC fields.
     The number format of the length field is an unsigned 16-Bit integer in Little Endian Format.
  • The Payload is a variable length field.
  • CK_A and CK_B is a 16 Bit checksum whose calculation is defined below.
- 
+
  • The checksum algorithm used is the 8-Bit Fletcher Algorithm, which is used in the TCP standard (RFC 1145). This algorithm works as follows:
  • Buffer[N] contains the data over which the checksum is to be calculated.
  • The two CK_ values are 8-Bit unsigned integers, only!
@@ -336,7 +336,7 @@ int UBlox::wait() {
             bytes -= read;
             while (Wire_.available()) {
                 uint8_t c = Wire.read();
-                id = this->process(c);  
+                id = this->process(c);
             }
         } while (bytes);
     }

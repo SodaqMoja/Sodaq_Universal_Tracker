@@ -69,7 +69,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 #define CR '\r'
-        
+
 #define DEFAULT_PROFILE "0"
 
 #define NO_IP_ADDRESS ((IP_t)0)
@@ -132,7 +132,7 @@ Sodaq_LteM::Sodaq_LteM() :
 bool Sodaq_LteM::isAlive()
 {
     println(STR_AT);
-    
+
     return (readResponse(NULL, 450) == ResponseOK);
 }
 
@@ -142,12 +142,12 @@ void Sodaq_LteM::init(Stream& stream, int8_t onoffPin, int8_t txEnablePin, int8_
     debugPrintLn("[init] started.");
 
     initBuffer(); // safe to call multiple times
-    
+
     setModemStream(stream);
-    
+
     sodaq_ltemOnOff.init(onoffPin, saraR4XXTogglePin);
     _onoff = &sodaq_ltemOnOff;
-    
+
     setTxEnablePin(txEnablePin);
 
     _cid = cid;
@@ -157,7 +157,7 @@ bool Sodaq_LteM::setRadioActive(bool on)
 {
     print("AT+CFUN=");
     println(on ? "1" : "0");
-    
+
     return (readResponse() == ResponseOK);
 }
 
@@ -165,7 +165,7 @@ bool Sodaq_LteM::setVerboseErrors(bool on)
 {
     print("AT+CMEE=");
     println(on ? "2" : "0"); // r4 supports verbose error messages
-    
+
     return (readResponse() == ResponseOK);
 }
 
@@ -183,21 +183,21 @@ ResponseTypes Sodaq_LteM::readResponse(char* buffer, size_t size,
 {
     ResponseTypes response = ResponseNotFound;
     uint32_t from = NOW;
-    
+
     do {
         // 250ms,  how many bytes at which baudrate?
         int count = readLn(buffer, size, 250);
         sodaq_wdt_reset();
-        
+
         if (count > 0) {
             if (outSize) {
                 *outSize = count;
             }
-            
+
             if (_disableDiag && strncmp(buffer, "OK", 2) != 0) {
                 _disableDiag = false;
             }
-            
+
             debugPrint("[rdResp]: ");
             debugPrintLn(buffer);
 
@@ -210,8 +210,8 @@ ResponseTypes Sodaq_LteM::readResponse(char* buffer, size_t size,
                 debugPrint(blkRm);
                 debugPrint(", ");
                 debugPrintLn(transferStatus);
-                
-                continue; 
+
+                continue;
             }
             else if (sscanf(buffer, "+UUHTTPCR: 0, %d, %d", &param1, &param2) == 2) {
                 int requestType = _httpModemIndexToRequestType(static_cast<uint8_t>(param1));
@@ -246,26 +246,26 @@ ResponseTypes Sodaq_LteM::readResponse(char* buffer, size_t size,
 
                 continue;
             }
-            
+
             if (startsWith(STR_AT, buffer)) {
                 continue; // skip echoed back command
             }
-            
+
             _disableDiag = false;
-            
+
             if (startsWith(STR_RESPONSE_OK, buffer)) {
                 return ResponseOK;
             }
-            
+
             if (startsWith(STR_RESPONSE_ERROR, buffer) ||
                     startsWith(STR_RESPONSE_CME_ERROR, buffer) ||
                     startsWith(STR_RESPONSE_CMS_ERROR, buffer)) {
                 return ResponseError;
             }
-            
+
             if (parserMethod) {
                 ResponseTypes parserResponse = parserMethod(response, buffer, count, callbackParameter, callbackParameter2);
-                
+
                 if ((parserResponse != ResponseEmpty) && (parserResponse != ResponsePendingExtra)) {
                     return parserResponse;
                 }
@@ -274,7 +274,7 @@ ResponseTypes Sodaq_LteM::readResponse(char* buffer, size_t size,
                     // ResponseEmpty indicates that the parser was satisfied
                     // Continue until "OK", "ERROR", or whatever else.
                 }
-                
+
                 // Prevent calling the parser again.
                 // This could happen if the input line is too long. It will be split
                 // and the next readLn will return the next part.
@@ -283,7 +283,7 @@ ResponseTypes Sodaq_LteM::readResponse(char* buffer, size_t size,
                     parserMethod = 0;
                 }
             }
-            
+
             // at this point, the parserMethod has ran and there is no override response from it,
             // so if there is some other response recorded, return that
             // (otherwise continue iterations until timeout)
@@ -292,15 +292,15 @@ ResponseTypes Sodaq_LteM::readResponse(char* buffer, size_t size,
                 return response;
             }
         }
-        
+
         delay(10);      // TODO Why do we need this delay?
     }
     while (!is_timedout(from, timeout));
-    
+
     if (outSize) {
         *outSize = 0;
     }
-    
+
     debugPrintLn("[rdResp]: timed out");
     return ResponseTimeout;
 }
@@ -537,7 +537,7 @@ bool Sodaq_LteM::setApn(const char* apn)
     print(",\"IP\",\"");
     print(apn);
     println("\"");
-    
+
     return (readResponse() == ResponseOK);
 }
 
@@ -558,7 +558,7 @@ bool Sodaq_LteM::setR4XXToLteM()
 void Sodaq_LteM::purgeAllResponsesRead()
 {
     uint32_t start = millis();
-    
+
     // make sure all the responses within the timeout have been read
     while ((readResponse(0, 1000) != ResponseTimeout) && !is_timedout(start, 2000)) {}
 }
@@ -569,9 +569,9 @@ bool Sodaq_LteM::connect(const char* apn, const char* forceOperator)
     if (!on()) {
         return false;
     }
-    
+
     purgeAllResponsesRead();
-    
+
     println("ATE0"); // echo off
     if (readResponse() != ResponseOK) {
         debugPrintLn("Error: Failed to turn off echo")
@@ -695,10 +695,10 @@ ResponseTypes Sodaq_LteM::_cellidParser(ResponseTypes& response, const char* buf
 void Sodaq_LteM::reboot()
 {
     println("AT+CFUN=15"); // reset modem + sim
-    
+
     // wait up to 2000ms for the modem to come up
     uint32_t start = millis();
-    
+
     while ((readResponse() != ResponseOK) && !is_timedout(start, 2000)) { }
 }
 
@@ -706,13 +706,13 @@ int Sodaq_LteM::createSocket(uint16_t localPort)
 {
     print("AT+USOCR=17,");
     println(localPort);
-    
+
     uint8_t socket;
-    
+
     if (readResponse<uint8_t, uint8_t>(_createSocketParser, &socket, NULL) == ResponseOK) {
         return socket;
     }
-    
+
     return SOCKET_FAIL;
 }
 
@@ -721,7 +721,7 @@ bool Sodaq_LteM::closeSocket(uint8_t socketID)
     // only Datagram/UDP is supported
     print("AT+USOCL=");
     println(socketID);
-    
+
     return readResponse() == ResponseOK;
 }
 
@@ -731,7 +731,7 @@ size_t Sodaq_LteM::socketSend(uint8_t socket, const char* remoteIP, const uint16
         debugPrintLn("SocketSend exceeded maximum buffer size!");
         return -1;
     }
-    
+
     // only Datagram/UDP is supported
     print("AT+USOST=");
     print(socket);
@@ -750,28 +750,28 @@ size_t Sodaq_LteM::socketSend(uint8_t socket, const char* remoteIP, const uint16
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
     }
     println('\"');
-    
+
     uint8_t retSocketID;
     size_t sentLength;
-    
+
     if (readResponse<uint8_t, size_t>(_sendSocketParser, &retSocketID, &sentLength, 0, 10 * 1000) == ResponseOK) {
         return sentLength;
     }
-    
+
     return 0;
 }
 
 bool Sodaq_LteM::waitForUDPResponse(uint32_t timeoutMS)
 {
     if (hasPendingUDPBytes()) { return true; }
-    
+
     uint32_t startTime = millis();
-    
+
     while (!hasPendingUDPBytes() && (millis() - startTime) < timeoutMS) {
         print("AT+USORF=");
         print(0);
         print(",");
-        println(0); 
+        println(0);
 
         uint8_t socketID = 0;
         size_t length = 0;
@@ -782,7 +782,7 @@ bool Sodaq_LteM::waitForUDPResponse(uint32_t timeoutMS)
         }
         sodaq_wdt_safe_delay(10);
     }
-    
+
     return hasPendingUDPBytes();
 }
 
@@ -803,18 +803,18 @@ size_t Sodaq_LteM::socketReceive(SaraUDPPacketMetadata* packet, char* buffer, si
         debugPrintLn("Reading from without available bytes!");
         return 0;
     }
-    
+
     print("AT+USORF=");
     print(_receivedUDPResponseSocket);
     print(',');
     println(size);
-    
+
     if (readResponse<SaraUDPPacketMetadata, char>(_udpReadSocketParser, packet, buffer) == ResponseOK) {
         // update pending bytes
         _pendingUDPBytes -= packet->length;
         return packet->length;
     }
-    
+
     debugPrintLn("Reading from socket failed!");
     return 0;
 }
@@ -843,7 +843,7 @@ size_t Sodaq_LteM::socketReceiveBytes(uint8_t* buffer, size_t length, SaraUDPPac
             buffer[i / 2] = HEX_PAIR_TO_BYTE(tempBuffer[i], tempBuffer[i + 1]);
         }
     }
-    
+
     return receivedSize;
 }
 
@@ -853,9 +853,9 @@ ResponseTypes Sodaq_LteM::_createSocketParser(ResponseTypes& response, const cha
     if (!socket) {
         return ResponseError;
     }
-    
+
     int socketID;
-    
+
     if (sscanf(buffer, "%d", &socketID) == 1) {
         if (socketID <= UINT8_MAX) {
             *socket = socketID;
@@ -863,7 +863,7 @@ ResponseTypes Sodaq_LteM::_createSocketParser(ResponseTypes& response, const cha
         else {
             return ResponseError;
         }
-        
+
         return ResponseEmpty;
     }
 
@@ -877,7 +877,7 @@ ResponseTypes Sodaq_LteM::_createSocketParser(ResponseTypes& response, const cha
 
         return ResponseEmpty;
     }
-    
+
     return ResponseError;
 }
 
@@ -887,10 +887,10 @@ ResponseTypes Sodaq_LteM::_sendSocketParser(ResponseTypes& response, const char*
     if (!socket) {
         return ResponseError;
     }
-    
+
     int socketID;
     int sendSize;
-    
+
     if (sscanf(buffer, "%d,%d", &socketID, &sendSize) == 2) {
         if (socketID <= UINT8_MAX) {
             *socket = socketID;
@@ -905,7 +905,7 @@ ResponseTypes Sodaq_LteM::_sendSocketParser(ResponseTypes& response, const char*
         else {
             return ResponseError;
         }
-        
+
         return ResponseEmpty;
     }
 
@@ -926,7 +926,7 @@ ResponseTypes Sodaq_LteM::_sendSocketParser(ResponseTypes& response, const char*
 
         return ResponseEmpty;
     }
-    
+
     return ResponseError;
 }
 
@@ -966,7 +966,7 @@ ResponseTypes Sodaq_LteM::_udpReadSocketParser(ResponseTypes& response, const ch
     return ResponseError;
 }
 
-ResponseTypes Sodaq_LteM::_udpReadURCParser(ResponseTypes& response, const char* buffer, size_t size, 
+ResponseTypes Sodaq_LteM::_udpReadURCParser(ResponseTypes& response, const char* buffer, size_t size,
     uint8_t* socket, size_t* length)
 {
     int socketID;
@@ -1003,7 +1003,7 @@ bool connectSocket(uint8_t socket, const char* host, uint16_t port)
     return false;
 }
 
-// Creates an HTTP request using the (optional) given buffer and 
+// Creates an HTTP request using the (optional) given buffer and
 // (optionally) returns the received data.
 // endpoint should include the initial "/".
 size_t Sodaq_LteM::httpRequest(const char* server, uint16_t port,
@@ -1418,7 +1418,7 @@ bool Sodaq_LteM::getFileSize(const char* filename, uint32_t & size)
 bool Sodaq_LteM::disconnect()
 {
     println("AT+COPS=2");
-    
+
     return (readResponse(NULL, 40000) == ResponseOK);
 }
 
@@ -1426,13 +1426,13 @@ bool Sodaq_LteM::disconnect()
 bool Sodaq_LteM::isConnected()
 {
     uint8_t value = 0;
-    
+
     println("AT+CGATT?");
-    
+
     if (readResponse<uint8_t, uint8_t>(_cgattParser, &value, NULL) == ResponseOK) {
         return (value == 1);
     }
-    
+
     return false;
 }
 
@@ -1441,19 +1441,19 @@ bool Sodaq_LteM::isConnected()
 bool Sodaq_LteM::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 {
     static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
-    
+
     println("AT+CSQ");
-    
+
     int csqRaw = 0;
     int berRaw = 0;
-    
+
     if (readResponse<int, int>(_csqParser, &csqRaw, &berRaw) == ResponseOK) {
         *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
         *ber = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
-        
+
         return true;
     }
-    
+
     return false;
 }
 
@@ -1490,11 +1490,11 @@ bool Sodaq_LteM::isValidIPv4(const char* str)
     uint8_t segs = 0; // Segment count
     uint8_t chcnt = 0; // Character count within segment
     uint8_t accum = 0; // Accumulator for segment
-    
+
     if (!str) {
         return false;
     }
-    
+
     // Process every character in string
     while (*str != '\0') {
         // Segment changeover
@@ -1503,44 +1503,44 @@ bool Sodaq_LteM::isValidIPv4(const char* str)
             if (chcnt == 0) {
                 return false;
             }
-            
+
             // Limit number of segments
             if (++segs == 4) {
                 return false;
             }
-            
+
             // Reset segment values and restart loop
             chcnt = accum = 0;
             str++;
             continue;
         }
-        
+
         // Check numeric
         if ((*str < '0') || (*str > '9')) {
             return false;
         }
-        
+
         // Accumulate and check segment
         if ((accum = accum * 10 + *str - '0') > 255) {
             return false;
         }
-        
+
         // Advance other segment specific stuff and continue loop
         chcnt++;
         str++;
     }
-    
+
     // Check enough segments and enough characters in last segment
     if (segs != 3) {
         return false;
     }
-    
+
     if (chcnt == 0) {
         return false;
     }
-    
+
     // Address OK
-    
+
     return true;
 }
 
@@ -1550,9 +1550,9 @@ bool Sodaq_LteM::waitForSignalQuality(uint32_t timeout)
     const int8_t minRSSI = getMinRSSI();
     int8_t rssi;
     uint8_t ber;
-    
+
     uint32_t delay_count = 500;
-    
+
     while (!is_timedout(start, timeout)) {
         if (getRSSIAndBER(&rssi, &ber)) {
             if (rssi != 0 && rssi >= minRSSI) {
@@ -1561,15 +1561,15 @@ bool Sodaq_LteM::waitForSignalQuality(uint32_t timeout)
                 return true;
             }
         }
-        
+
         sodaq_wdt_safe_delay(delay_count);
-        
+
         // Next time wait a little longer, but not longer than 5 seconds
         if (delay_count < 5000) {
             delay_count += 1000;
         }
     }
-    
+
     return false;
 }
 
@@ -1578,14 +1578,14 @@ ResponseTypes Sodaq_LteM::_cgattParser(ResponseTypes& response, const char* buff
     if (!result) {
         return ResponseError;
     }
-    
+
     int val;
-    
+
     if (sscanf(buffer, "+CGATT: %d", &val) == 1) {
         *result = val;
         return ResponseEmpty;
     }
-    
+
     return ResponseError;
 }
 
@@ -1595,18 +1595,18 @@ ResponseTypes Sodaq_LteM::_csqParser(ResponseTypes& response, const char* buffer
     if (!rssi || !ber) {
         return ResponseError;
     }
-    
+
     if (sscanf(buffer, "+CSQ: %d,%d", rssi, ber) == 2) {
         return ResponseEmpty;
     }
-    
+
     return ResponseError;
 }
 
 uint32_t Sodaq_LteM::convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec)
 {
     struct tm tm;
-    
+
     tm.tm_isdst = -1;
     tm.tm_yday = 0;
     tm.tm_wday = 0;
@@ -1616,7 +1616,7 @@ uint32_t Sodaq_LteM::convertDatetimeToEpoch(int y, int m, int d, int h, int min,
     tm.tm_hour = h;
     tm.tm_min = min;
     tm.tm_sec = sec;
-    
+
     return mktime(&tm);
 }
 
@@ -1626,7 +1626,7 @@ ResponseTypes Sodaq_LteM::_cclkParser(ResponseTypes& response, const char* buffe
     if (!epoch) {
         return ResponseError;
     }
-    
+
     // format: "yy/MM/dd,hh:mm:ss+TZ
     int y, m, d, h, min, sec, tz;
     if (sscanf(buffer, "+CCLK: \"%d/%d/%d,%d:%d:%d+%d\"", &y, &m, &d, &h, &min, &sec, &tz) == 7) {
@@ -1637,7 +1637,7 @@ ResponseTypes Sodaq_LteM::_cclkParser(ResponseTypes& response, const char* buffe
         *epoch = convertDatetimeToEpoch(y, m, d, h, min, sec);
         return ResponseEmpty;
     }
-    
+
     return ResponseError;
 }
 
@@ -1689,7 +1689,7 @@ void Sodaq_ltemOnOff::off()
     if (_onoffPin >= 0) {
         digitalWrite(_onoffPin, LOW);
     }
-    
+
     // Should be instant
     // Let's wait a little, but not too long
     delay(50);
@@ -1707,7 +1707,7 @@ bool Sodaq_ltemOnOff::isOn()
     // So, our own status is all we have.
     return _onoff_status;
     #endif
-    
+
     // Let's assume it is on.
     return true;
 }
