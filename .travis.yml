@@ -12,7 +12,7 @@ env:
 #    global:
 #        - PLATFORMIO_BUILD_FLAGS=-Werror
     matrix:
-        - PLATFORMIO_CI_SRC=SodaqOneTracker_v2 PLATFORMIO_CI_EXTRA_ARGS="--board=sodaq_one"
+        - PLATFORMIO_CI_SRC=Sodaq_Universal_Tracker PLATFORMIO_CI_EXTRA_ARGS="--board=sodaq_one"
 
 install:
     - pip install -U platformio
