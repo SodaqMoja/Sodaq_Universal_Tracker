@@ -43,10 +43,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define debugPrint(...)
 #endif
 
-#ifndef consolePrint 
+#ifndef consolePrint
 #define consolePrint(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
 #define consolePrintln(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
-#endif 
+#endif
 
 
 // BEGIN LORA DEFINES

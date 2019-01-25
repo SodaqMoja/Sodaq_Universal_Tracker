@@ -120,4 +120,3 @@ private:
 };
 
 #endif /* REPORTDATARECORD_H_ */
-

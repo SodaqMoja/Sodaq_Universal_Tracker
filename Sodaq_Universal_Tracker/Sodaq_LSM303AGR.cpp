@@ -55,7 +55,7 @@ int8_t Sodaq_LSM303AGR::getTemperature()
 
     if (_accelMode == AccelerometerMode::HighResMode || _accelMode == AccelerometerMode::NormalMode) {
         value /= pow(2, 6); // 12-bit value
-        
+
         return value / 4.0f + 25.0f;
     }
     else if (_accelMode == AccelerometerMode::LowPowerMode) {
@@ -71,7 +71,7 @@ double Sodaq_LSM303AGR::getGsFromScaledValue(int16_t value)
 {
     if (_accelMode == AccelerometerMode::HighResMode) {
         value /= pow(2, 4); // 12-bit value
-        
+
         switch (_accelScale)
         {
             case Scale::Scale2g: return value * 1.0f / 1000.0f;
@@ -84,7 +84,7 @@ double Sodaq_LSM303AGR::getGsFromScaledValue(int16_t value)
     }
     else if (_accelMode == AccelerometerMode::NormalMode) {
         value /= pow(2, 6); // 10-bit value
-        
+
         switch (_accelScale)
         {
             case Scale::Scale2g: return value * 4.0f / 1000.0f;
@@ -97,7 +97,7 @@ double Sodaq_LSM303AGR::getGsFromScaledValue(int16_t value)
     }
     else if (_accelMode == AccelerometerMode::LowPowerMode) {
         value /= pow(2, 8); // 8-bit value
-        
+
         switch (_accelScale)
         {
             case Scale::Scale2g: return value * 16.0f / 1000.0f;
@@ -146,7 +146,7 @@ void Sodaq_LSM303AGR::enableAccelerometer(AccelerometerMode mode, AccelerometerO
 
     // write the value to CTRL_REG4_A
     writeAccelRegister(CTRL_REG4_A, ctrlReg4A);
-    
+
     _accelScale = scale;
     _accelMode = mode;
 
@@ -315,7 +315,7 @@ void Sodaq_LSM303AGR::enableMagnetometerInterrupt(uint8_t magAxesEvents, double 
     else {
         unsetMagRegisterBits(INT_CTRL_REG_M, _BV(IEA));
     }
-    
+
     // set threshold registers
     int16_t ths = trunc(threshold / 1.5);
     writeMagRegister(INT_THS_L_REG_M, ths & 0x00FF);

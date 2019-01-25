@@ -161,4 +161,3 @@ void Time::localtime (const uint32_t utctime,struct tmx *t) {
      t->tm_sec = (int) (rem % SECSPERMIN);
      //
      }
-

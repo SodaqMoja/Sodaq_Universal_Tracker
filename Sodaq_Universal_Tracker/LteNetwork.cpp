@@ -42,10 +42,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define debugPrint(...)
 #endif
 
-#ifndef consolePrint 
+#ifndef consolePrint
 #define consolePrint(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
 #define consolePrintln(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
-#endif 
+#endif
 
 // BEGIN LteM DEFINES
 Sodaq_LteM lteM;
@@ -84,7 +84,7 @@ bool LteNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
     modemStream.begin(lteM.getSaraR4Baudrate());
     lteM.init(modemStream, SARA_ENABLE, -1, SARA_R4XX_TOGGLE);
 
-    pinMode(SARA_TX_ENABLE, OUTPUT); // may be needed for other SARA boards 
+    pinMode(SARA_TX_ENABLE, OUTPUT); // may be needed for other SARA boards
     digitalWrite(SARA_TX_ENABLE, HIGH);
 
     if (join == INIT_JOIN) {

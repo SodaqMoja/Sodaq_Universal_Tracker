@@ -163,8 +163,8 @@ private:
         uint16_t length;
         uint8_t buffer[256];
     } payLoad_;
-    
-    
+
+
 };
 
 #endif // UBLOX_H

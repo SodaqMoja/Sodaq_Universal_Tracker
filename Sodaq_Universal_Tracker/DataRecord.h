@@ -109,4 +109,3 @@ private:
 };
 
 #endif /* DATARECORD_H_ */
-

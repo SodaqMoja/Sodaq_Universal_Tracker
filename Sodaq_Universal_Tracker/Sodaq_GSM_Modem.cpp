@@ -292,7 +292,7 @@ size_t Sodaq_GSM_Modem::println(void)
     return i;
 }
 
-// Initializes the input buffer and makes sure it is only initialized once. 
+// Initializes the input buffer and makes sure it is only initialized once.
 // Safe to call multiple times.
 void Sodaq_GSM_Modem::initBuffer()
 {
@@ -421,7 +421,7 @@ size_t Sodaq_GSM_Modem::readBytes(uint8_t* buffer, size_t length, uint32_t timeo
         if (c < 0) {
             break;
         }
-        
+
         *buffer++ = static_cast<uint8_t>(c);
         count++;
     }
@@ -439,7 +439,7 @@ size_t Sodaq_GSM_Modem::readLn(char* buffer, size_t size, uint32_t timeout)
     // Use size-1 to leave room for a string terminator
     size_t len = readBytesUntil(SODAQ_GSM_TERMINATOR[SODAQ_GSM_TERMINATOR_LEN - 1], buffer, size - 1, timeout);
 
-    // check if the terminator is more than 1 characters, then check if the first character of it exists 
+    // check if the terminator is more than 1 characters, then check if the first character of it exists
     // in the calculated position and terminate the string there
     if ((SODAQ_GSM_TERMINATOR_LEN > 1) && (buffer[len - (SODAQ_GSM_TERMINATOR_LEN - 1)] == SODAQ_GSM_TERMINATOR[0])) {
         len -= SODAQ_GSM_TERMINATOR_LEN - 1;

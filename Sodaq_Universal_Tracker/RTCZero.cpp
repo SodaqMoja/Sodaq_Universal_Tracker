@@ -79,7 +79,7 @@ void RTCZero::begin(bool resetTime)
     while (RTCisSyncing())
         ;
 
-    NVIC_EnableIRQ(RTC_IRQn); // enable RTC interrupt 
+    NVIC_EnableIRQ(RTC_IRQn); // enable RTC interrupt
     NVIC_SetPriority(RTC_IRQn, 0x00);
 
     RTC->MODE2.INTENSET.reg |= RTC_MODE2_INTENSET_ALARM0; // enable alarm interrupt

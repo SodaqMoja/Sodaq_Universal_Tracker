@@ -69,7 +69,7 @@ public:
     // Returns true if the modem replies to "AT" commands without timing out.
     bool isAlive();
 
-    // Returns the default baud rate of the modem. 
+    // Returns the default baud rate of the modem.
     // To be used when initializing the modem stream for the first time.
     uint32_t getDefaultBaudrate() { return 9600; };
 
@@ -210,7 +210,7 @@ public:
 
     // ==== HTTP
 
-    // Creates an HTTP request using the (optional) given buffer and 
+    // Creates an HTTP request using the (optional) given buffer and
     // (optionally) returns the received data.
     // endpoint should include the initial "/".
     size_t httpRequest(const char* server, uint16_t port, const char* endpoint,
@@ -235,7 +235,7 @@ public:
 
     // Opens an FTP connection.
     bool openFtpConnection(const char* server, const char* username, const char* password, FtpModes ftpMode);
-    
+
     // Closes the FTP connection.
     bool closeFtpConnection();
 
@@ -243,7 +243,7 @@ public:
     // filename should be limited to 256 characters (excl. null terminator)
     // path should be limited to 512 characters (excl. null temrinator)
     bool openFtpFile(const char* filename, const char* path = NULL);
-    
+
     // Sends the given "buffer" to the (already) open FTP file.
     // Returns true if successful.
     // Fails immediatelly if there is no open FTP file.
@@ -254,12 +254,12 @@ public:
     // Returns true if successful.
     // Fails immediatelly if there is no open FTP file.
     int ftpReceive(char* buffer, size_t size);
-    
+
     // Closes the open FTP file.
     // Returns true if successful.
     // Fails immediatelly if there is no open FTP file.
     bool closeFtpFile();
-    
+
     // ==== Sms
 
     // Gets an SMS list according to the given filter and puts the indexes in the "indexList".
@@ -320,7 +320,7 @@ protected:
     GSMResponseTypes readResponse(char* buffer, size_t size,
             CallbackMethodPtr parserMethod, void* callbackParameter, void* callbackParameter2 = NULL,
             size_t* outSize = NULL, uint32_t timeout = DEFAULT_READ_MS);
-    
+
     GSMResponseTypes readResponse(size_t* outSize = NULL, uint32_t timeout = DEFAULT_READ_MS)
     {
         return readResponse(_inputBuffer, _inputBufferSize, NULL, NULL, NULL, outSize, timeout);
@@ -339,7 +339,7 @@ protected:
         T1* callbackParameter, T2* callbackParameter2,
         size_t* outSize = NULL, uint32_t timeout = DEFAULT_READ_MS)
     {
-        return readResponse(_inputBuffer, _inputBufferSize, (CallbackMethodPtr)parserMethod, 
+        return readResponse(_inputBuffer, _inputBufferSize, (CallbackMethodPtr)parserMethod,
             (void*)callbackParameter, (void*)callbackParameter2, outSize, timeout);
     };
 

@@ -95,4 +95,3 @@ private:
 };
 
 #endif /* OVERTHEAIRCONFIGDATARECORD_H_ */
-

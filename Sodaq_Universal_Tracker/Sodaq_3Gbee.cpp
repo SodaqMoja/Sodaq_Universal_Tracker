@@ -151,7 +151,7 @@ GSMResponseTypes Sodaq_3Gbee::readResponse(char* buffer, size_t size,
         // 250ms,  how many bytes at which baudrate?
         int count = readLn(buffer, size, 250);
         sodaq_wdt_reset();
-        
+
         if (count > 0) {
             if (outSize) {
                 *outSize = count;
@@ -243,18 +243,18 @@ GSMResponseTypes Sodaq_3Gbee::readResponse(char* buffer, size_t size,
             if (startsWith(STR_AT, buffer)) {
                 continue; // skip echoed back command
             }
-            
+
             _disableDiag = false;
             if (startsWith(STR_RESPONSE_OK, buffer)) {
                 return GSMResponseOK;
             }
-            
+
             if (startsWith(STR_RESPONSE_ERROR, buffer) ||
                     startsWith(STR_RESPONSE_CME_ERROR, buffer) ||
                     startsWith(STR_RESPONSE_CMS_ERROR, buffer)) {
                 return GSMResponseError;
             }
-            
+
             if (startsWith(STR_RESPONSE_SOCKET_PROMPT, buffer) ||
                     startsWith(STR_RESPONSE_SMS_PROMPT, buffer) ||
                     startsWith(STR_RESPONSE_FILE_PROMPT, buffer)) {
@@ -276,7 +276,7 @@ GSMResponseTypes Sodaq_3Gbee::readResponse(char* buffer, size_t size,
                 parserMethod = 0;
             }
 
-            // at this point, the parserMethod has ran and there is no override response from it, 
+            // at this point, the parserMethod has ran and there is no override response from it,
             // so if there is some other response recorded, return that
             // (otherwise continue iterations until timeout)
             if (response != GSMResponseNotFound) {
@@ -619,7 +619,7 @@ bool Sodaq_3Gbee::connect()
     }
 
     // TODO check GPRS attach? (AT+CGATT=1 should be OK)
-    
+
     // check if connected and disconnect
     if (isConnected()) {
         if (!disconnect()) {
@@ -791,7 +791,7 @@ GSMResponseTypes Sodaq_3Gbee::_csqParser(GSMResponseTypes& response, const char*
 bool Sodaq_3Gbee::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 {
     static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
-    
+
     println("AT+CSQ");
 
     int csqRaw = 0;
@@ -800,7 +800,7 @@ bool Sodaq_3Gbee::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
     if (readResponse<int, int>(_csqParser, &csqRaw, &berRaw) == GSMResponseOK) {
         *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
         *ber = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
-        
+
         return true;
     }
 
@@ -1378,7 +1378,7 @@ GSMResponseTypes Sodaq_3Gbee::_cpinParser(GSMResponseTypes& response, const char
 
         return GSMResponseEmpty;
     }
-    
+
     return GSMResponseError;
 }
 
@@ -1419,7 +1419,7 @@ GSMResponseTypes Sodaq_3Gbee::_udnsrnParser(GSMResponseTypes& response, const ch
 
     if (sscanf(buffer, "+UDNSRN: \"" IP_FORMAT "\"", &o1, &o2, &o3, &o4) == 4) {
         *ipResult = TUPLE_TO_IP(o1, o2, o3, o4);
-        
+
         return GSMResponseEmpty;
     }
 
@@ -1957,7 +1957,7 @@ bool Sodaq_3Gbee::receiveDataTCP(uint8_t *data, size_t data_len, uint16_t timeou
 
 // ==== HTTP
 
-// Creates an HTTP request using the (optional) given buffer and 
+// Creates an HTTP request using the (optional) given buffer and
 // (optionally) returns the received data.
 // endpoint should include the initial "/".
 size_t Sodaq_3Gbee::httpRequest(const char* server, uint16_t port,
@@ -2209,7 +2209,7 @@ bool Sodaq_3Gbee::openFtpConnection(const char* server, const char* username, co
     print(isValidIPv4(server) ? "0,\"" : "1,\"");
     print(server);
     println("\"");
-    
+
     if (readResponse() != GSMResponseOK) {
         return false;
     }

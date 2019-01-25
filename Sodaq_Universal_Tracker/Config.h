@@ -90,7 +90,7 @@ struct ConfigParams
     uint8_t _gpsMinSatelliteCount;
     uint8_t _coordinateUploadCount;
     uint8_t _repeatCount;
-    
+
     uint8_t _isDebugOn;
     uint8_t _isCayennePayloadEnabled;
 
@@ -121,7 +121,7 @@ public:
     uint8_t getIsLedEnabled() const { return _isLedEnabled; }
     uint8_t getIsOtaaEnabled() const { return _isOtaaEnabled; }
     uint8_t getShouldRetryConnectionOnSend() const { return _shouldRetryConnectionOnSend; }
-    
+
     const char* getDevAddrOrEUI() const { return _devAddrOrEUI; }
     const char* getAppSKeyOrEUI() const { return _appSKeyOrEUI; }
     const char* getNwSKeyOrAppKey() const { return _nwSKeyOrAppKey; }
@@ -142,7 +142,7 @@ public:
     const char* getTargetIP() const { return _targetIP; }
 
     uint16_t getTargetPort() const { return _targetPort; }
-    
+
     uint8_t getNetworkType() const { return _networkType; }
 
     uint8_t getLoraPort() const { return _loraPort; }

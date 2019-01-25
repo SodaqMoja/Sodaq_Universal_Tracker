@@ -43,10 +43,10 @@ POSSIBILITY OF SUCH DAMAGE.
 #define debugPrint(...)
 #endif
 
-#ifndef consolePrint 
+#ifndef consolePrint
 #define consolePrint(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
 #define consolePrintln(...) { if (this->_consoleStream) this->_consoleStream->println(__VA_ARGS__); }
-#endif 
+#endif
 
 // BEGIN 3G DEFINES
 #ifndef PIN_SARA_ENABLE
@@ -88,7 +88,7 @@ bool Network3G::init(Uart & modemStream, DataReceiveCallback callback, InitConso
     sodaq_3gbee.init(modemStream, -1, SARA_ENABLE, -1);
 
     if (SARA_TX_ENABLE >= 0) {
-        pinMode(SARA_TX_ENABLE, OUTPUT); // maybe needed for other SARA boards 
+        pinMode(SARA_TX_ENABLE, OUTPUT); // maybe needed for other SARA boards
         digitalWrite(SARA_TX_ENABLE, HIGH);
     }
 
