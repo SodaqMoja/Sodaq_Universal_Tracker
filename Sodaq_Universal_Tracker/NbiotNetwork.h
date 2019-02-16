@@ -44,7 +44,7 @@ public:
     Initializes the lora module according to the given operation (join or skip).
     Returns true if the operation was successful.
     */
-    bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, bool useR4xx);
+    bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, bool useR4xx, bool use2G);
 
     /**
     * Turns the nbiot module on or off (and connects/disconnects)

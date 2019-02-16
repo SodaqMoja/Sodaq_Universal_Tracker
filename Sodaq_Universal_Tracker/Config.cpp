@@ -187,7 +187,7 @@ static const Command args[] = {
     { "Repeat Count              ", "rep=", Command::set_uint8, Command::show_uint8, &params._repeatCount },
 #elif defined(ARDUINO_SODAQ_SFF) || defined (ARDUINO_SODAQ_SARA)
     { "Cellular                  ", 0,      0,                  Command::show_title, 0 },
-    { "Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, LTE-M = 4, 2G/3G = 5) ", "ntype=", Command::set_uint8, Command::show_uint8, &params._networkType },
+    { "Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, R4xx LTE-M = 4, R412 2G = 5, 2G/3G = 6) ", "ntype=", Command::set_uint8, Command::show_uint8, &params._networkType },
     { "All Things Talk Token     ", "att=", Command::set_string, Command::show_string, params._attToken, sizeof(params._attToken) },
     { "APN                       ", "apn=", Command::set_string, Command::show_string, params._apn, sizeof(params._apn) },
     { "Force Operator            ", "opr=", Command::set_string, Command::show_string, params._forceOperator, sizeof(params._forceOperator) },

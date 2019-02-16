@@ -64,7 +64,7 @@ Initializes the NB-IoT module according to the given operation (join or skip).
 Returns true if the operation was successful.
 */
 
-bool NbiotNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, bool useR4xx)
+bool NbiotNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, bool useR4xx, bool use2G)
 {
     _callback = callback;
     debugPrintLn("Initializing NBiot...");
@@ -92,6 +92,9 @@ bool NbiotNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCo
     }
     _useR4xx = useR4xx;
 
+    if (use2G) {
+        nbiot.setUrat("9");
+    }
 
     pinMode(SARA_TX_ENABLE, OUTPUT); // may be needed for other SARA boards
     digitalWrite(SARA_TX_ENABLE, HIGH);

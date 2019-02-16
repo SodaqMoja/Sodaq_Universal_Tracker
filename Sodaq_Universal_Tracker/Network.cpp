@@ -56,7 +56,8 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
 {
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2: {
+    case NETWORK_TYPE_NBIOT_N2:
+    case NETWORK_TYPE_2G: {
         if (_diagStream) {
             nbiotNetwork.setDiag(_diagStream);
         }
@@ -65,9 +66,10 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
             nbiotNetwork.setConsoleStream(_consoleStream);
         }
 
-        bool shouldUseR4 = (_networkType == NETWORK_TYPE_NBIOT_R4);
+        bool shouldUse2G = (_networkType == NETWORK_TYPE_2G);
+        bool shouldUseR4 = shouldUse2G || (_networkType == NETWORK_TYPE_NBIOT_R4);
 
-        return nbiotNetwork.init(modemStream, callback, messages, join, shouldUseR4);
+        return nbiotNetwork.init(modemStream, callback, messages, join, shouldUseR4, shouldUse2G);
     }
     case NETWORK_TYPE_LORA: {
         if (_diagStream) {
@@ -113,7 +115,8 @@ uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2: {
+    case NETWORK_TYPE_NBIOT_N2:
+    case NETWORK_TYPE_2G: {
         return nbiotNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_LORA: {
@@ -124,7 +127,6 @@ uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
     }
     case NETWORK_TYPE_LTEM: {
         return lteNetwork.transmit(buffer, size, rxTimeout);
-    return 0;
     }
     default: {
         debugPrintLn("Unsupported network type");
@@ -137,7 +139,8 @@ void Network::loopHandler()
 {
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2: {
+    case NETWORK_TYPE_NBIOT_N2:
+    case NETWORK_TYPE_2G: {
         nbiotNetwork.loopHandler();
         break;
     }
@@ -164,7 +167,8 @@ void Network::sleep()
 {
     switch (_networkType) {
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_NBIOT_N2: {
+        case NETWORK_TYPE_NBIOT_N2:
+        case NETWORK_TYPE_2G: {
             nbiotNetwork.sleep();
             break;
         }
@@ -191,7 +195,8 @@ void Network::setActive(bool on)
 {
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2: {
+    case NETWORK_TYPE_NBIOT_N2:
+    case NETWORK_TYPE_2G: {
         nbiotNetwork.setActive(on);
         break;
     }
@@ -218,7 +223,8 @@ uint32_t Network::getBaudRate()
 {
     switch (_networkType) {
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_NBIOT_N2: {
+        case NETWORK_TYPE_NBIOT_N2:
+        case NETWORK_TYPE_2G: {
             return nbiotNetwork.getBaudRate();
         }
         case NETWORK_TYPE_LORA: {
@@ -258,7 +264,8 @@ const char* Network::getIMEI()
 
         switch (_networkType) {
             case NETWORK_TYPE_NBIOT_R4:
-            case NETWORK_TYPE_NBIOT_N2: {
+            case NETWORK_TYPE_NBIOT_N2:
+            case NETWORK_TYPE_2G: {
                 success = nbiotNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
@@ -300,7 +307,8 @@ const char* Network::getModuleVersion()
 
         switch (_networkType) {
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_NBIOT_N2: {
+        case NETWORK_TYPE_NBIOT_N2:
+        case NETWORK_TYPE_2G: {
             success = nbiotNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }

@@ -202,6 +202,17 @@ bool Sodaq_nbIOT::getFirmwareVersion(char* buffer, size_t size)
     return (readResponse<char, size_t>(_nakedStringParser, buffer, &size) == ResponseOK);
 }
 
+bool Sodaq_nbIOT::execCommand(const char* command, uint32_t timeout, char* buffer, size_t size)
+{
+    println(command);
+
+    if (buffer == NULL) {
+        return readResponse(NULL, timeout) == ResponseOK;
+    }
+
+    return readResponse<char, size_t>(_nakedStringParser, buffer, &size, NULL, timeout) == ResponseOK;
+}
+
 ResponseTypes Sodaq_nbIOT::_nakedStringParser(ResponseTypes& response, const char* buffer,
     size_t size, char* stringBuffer, size_t* stringBufferSize)
 {
@@ -359,6 +370,13 @@ bool Sodaq_nbIOT::setVerboseErrors(bool on)
     }
 
     return (readResponse() == ResponseOK);
+}
+
+void Sodaq_nbIOT::setUrat(const char* urat)
+{
+    size_t len = strlen(urat);
+    _urat = static_cast<char*>(realloc(_urat, len + 1));
+    strcpy(_urat, urat);
 }
 
 bool Sodaq_nbIOT::setIndicationsActive(bool on)
@@ -564,7 +582,12 @@ bool Sodaq_nbIOT::setBand(uint8_t band)
 
 bool Sodaq_nbIOT::setR4XXToNarrowband()
 {
-    println("AT+URAT=8");
+    if (_urat != NULL) {
+        print("AT+URAT=");
+        println(_urat);
+    } else {
+        println("AT+URAT=8");
+    }
 
     return (readResponse() == ResponseOK);
 }
@@ -786,8 +809,13 @@ bool Sodaq_nbIOT::attachGprs(uint32_t timeout)
     uint32_t delay_count = 500;
 
     while (!is_timedout(start, timeout)) {
-        if (isConnected()) {
-            return true;
+        // if (isConnected()) {
+        //     return true;
+        // }
+        if (isAttached()) {
+            if (isDefinedIP4() || (_isSaraR4XX && execCommand("AT+CGACT=1") && isDefinedIP4())) {
+                return true;
+            }
         }
 
         // println("AT+CGATT=1");
@@ -1196,8 +1224,8 @@ bool Sodaq_nbIOT::disconnect()
     return (readResponse(NULL, 40000) == ResponseOK);
 }
 
-// Returns true if the modem is connected to the network and has an activated data connection.
-bool Sodaq_nbIOT::isConnected()
+// Returns true if the modem is attached to the network and has an activated data connection.
+bool Sodaq_nbIOT::isAttached()
 {
     uint8_t value = 0;
 
@@ -1208,6 +1236,38 @@ bool Sodaq_nbIOT::isConnected()
     }
 
     return false;
+}
+
+// Returns true if defined IP4 address is not 0.0.0.0.
+bool Sodaq_nbIOT::isDefinedIP4()
+{
+    char buffer[256];
+    char apn[64];
+    char ip[32];
+
+    if (!execCommand("AT+CGDCONT?", SODAQ_AT_DEVICE_DEFAULT_READ_MS, buffer, sizeof(buffer))) {
+        return false;
+    }
+
+    if (strncmp(buffer, "+CGDCONT: 1,\"IP\"", 16) != 0) {
+        return false;
+    }
+
+    if (strncmp(buffer + 16, ",\"\"", 3) == 0) {
+        return false;
+    }
+
+    if (sscanf(buffer + 16, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) {
+        return false;
+    }
+
+    return strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0;
+}
+
+// Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
+bool Sodaq_nbIOT::isConnected()
+{
+    return isAttached() && isDefinedIP4();
 }
 
 // Gets the Received Signal Strength Indication in dBm and Bit Error Rate.

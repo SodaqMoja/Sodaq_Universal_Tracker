@@ -105,7 +105,13 @@ class Sodaq_nbIOT: public Sodaq_AT_Device
         // Disconnects the modem from the network.
         bool disconnect();
 
-        // Returns true if the modem is connected to the network and has an activated data connection.
+        // Returns true if the modem is attached to the network and has an activated data connection.
+        bool isAttached();
+
+        // Returns true if defined IP4 address is not 0.0.0.0.
+        bool isDefinedIP4();
+
+        // Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
         bool isConnected();
 
         // Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
@@ -146,6 +152,11 @@ class Sodaq_nbIOT: public Sodaq_AT_Device
         bool getIMEI(char* buffer, size_t size);
         bool getCCID(char* buffer, size_t size);
         bool getFirmwareVersion(char* buffer, size_t size);
+
+        void setUrat(const char* urat);
+        void purgeAllResponsesRead();
+        bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
+        bool execCommand(const char* command, uint32_t timeout = SODAQ_AT_DEVICE_DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
     protected:
         // override
         ResponseTypes readResponse(char* buffer, size_t size, size_t* outSize, uint32_t timeout = SODAQ_AT_DEVICE_DEFAULT_READ_MS)
@@ -178,8 +189,6 @@ class Sodaq_nbIOT: public Sodaq_AT_Device
             return readResponse(_inputBuffer, _inputBufferSize, (CallbackMethodPtr)parserMethod,
                                 (void*)callbackParameter, (void*)callbackParameter2, outSize, timeout);
         };
-
-        void purgeAllResponsesRead();
     private:
         //uint16_t _socketPendingBytes[SOCKET_COUNT]; // TODO add getter
         //bool _socketClosedBit[SOCKET_COUNT];
@@ -204,7 +213,8 @@ class Sodaq_nbIOT: public Sodaq_AT_Device
 
         bool _isSaraR4XX;
 
-		uint8_t _cid;
+        uint8_t _cid;
+        char* _urat = NULL;
 
         // flag indicating UDP response via URC
         int _receivedUDPResponseSocket = 0;
@@ -219,7 +229,6 @@ class Sodaq_nbIOT: public Sodaq_AT_Device
         bool setR4XXToNarrowband();
 
         bool waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
-        bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
         bool setNconfigParam(const char* param, const char* value);
         bool checkAndApplyNconfig();
         void reboot();

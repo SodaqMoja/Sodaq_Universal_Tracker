@@ -48,6 +48,7 @@ public:
         NETWORK_TYPE_NBIOT_N2,
         NETWORK_TYPE_NBIOT_R4,
         NETWORK_TYPE_LTEM,
+        NETWORK_TYPE_2G,
         NETWORK_TYPE_2G_3G,
     };
 
