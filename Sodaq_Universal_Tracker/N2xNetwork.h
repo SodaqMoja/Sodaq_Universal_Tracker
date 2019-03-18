@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018, SODAQ
+Copyright (c) 2019, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -31,29 +31,21 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #pragma once
 
-#include <Arduino.h>
 #include "DataReceiveCallback.h"
 #include "Enums.h"
-#include "LoRaHelper.h"
-#include "LoraNetwork.h"
-#include "N2xNetwork.h"
-#include "NbiotNetwork.h"
-#include "3GNetwork.h"
-#include "LteNetwork.h"
 
-class Network {
+class N2xNetwork {
 public:
-    enum NetworkType {
-        NETWORK_TYPE_NOTYPE = 0,
-        NETWORK_TYPE_LORA,
-        NETWORK_TYPE_NBIOT_N2,
-        NETWORK_TYPE_NBIOT_R4,
-        NETWORK_TYPE_LTEM,
-        NETWORK_TYPE_2G,
-        NETWORK_TYPE_2G_3G,
-    };
+    /**
+    Initializes the lora module according to the given operation (join or skip).
+    Returns true if the operation was successful.
+    */
+    bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join);
 
-    bool init(Uart& modemStream, DataReceiveCallback callback, uint32_t(*getNow)(), InitConsoleMessages messages, InitJoin join);
+    /**
+    * Turns the nbiot module on or off (and connects/disconnects)
+    */
+    void setActive(bool on);
 
     uint8_t transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout);
 
@@ -61,22 +53,18 @@ public:
 
     void sleep();
 
-    void setActive(bool on);
-
-    void setNetworkType(NetworkType type);
-
     // Sets the optional "Diagnostics and Debug" stream.
     void setDiag(Stream& stream) { _diagStream = &stream; }
     void setDiag(Stream* stream) { _diagStream = stream; }
     void setConsoleStream(Stream& stream) { _consoleStream = &stream; }
-    LoraNetwork& getLoraNetwork();
-    const char* getIMEI();
-    const char* getModuleVersion();
+    void setConsoleStream(Stream* stream) { _consoleStream = stream; }
 
     uint32_t getBaudRate();
-
+    bool getIMEI(char* buffer, size_t size);
+    bool getModuleVersion(char* buffer, size_t size);
 private:
-    NetworkType _networkType = NETWORK_TYPE_NOTYPE;
+    DataReceiveCallback _callback;
+
     // The (optional) stream to show debug information.
     Stream* _diagStream;
     Stream* _consoleStream;

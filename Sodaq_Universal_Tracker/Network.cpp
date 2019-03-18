@@ -43,6 +43,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 LoraNetwork loraNetwork;
+N2xNetwork n2xNetwork;
 NbiotNetwork nbiotNetwork;
 Network3G network3G;
 LteNetwork lteNetwork;
@@ -55,8 +56,18 @@ static char cachedModuleVersion[50];
 bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*getNow)(), InitConsoleMessages messages, InitJoin join)
 {
     switch (_networkType) {
+    case NETWORK_TYPE_NBIOT_N2: {
+        if (_diagStream) {
+            n2xNetwork.setDiag(_diagStream);
+        }
+
+        if (_consoleStream) {
+            n2xNetwork.setConsoleStream(_consoleStream);
+        }
+
+        return n2xNetwork.init(modemStream, callback, messages, join);
+    }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2:
     case NETWORK_TYPE_2G: {
         if (_diagStream) {
             nbiotNetwork.setDiag(_diagStream);
@@ -114,8 +125,10 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
 uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
     switch (_networkType) {
+    case NETWORK_TYPE_NBIOT_N2: {
+        return n2xNetwork.transmit(buffer, size, rxTimeout);
+    }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2:
     case NETWORK_TYPE_2G: {
         return nbiotNetwork.transmit(buffer, size, rxTimeout);
     }
@@ -138,8 +151,11 @@ uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 void Network::loopHandler()
 {
     switch (_networkType) {
+    case NETWORK_TYPE_NBIOT_N2: {
+        n2xNetwork.loopHandler();
+        break;
+    }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2:
     case NETWORK_TYPE_2G: {
         nbiotNetwork.loopHandler();
         break;
@@ -166,8 +182,11 @@ void Network::loopHandler()
 void Network::sleep()
 {
     switch (_networkType) {
+        case NETWORK_TYPE_NBIOT_N2: {
+            n2xNetwork.sleep();
+            break;
+        }
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_NBIOT_N2:
         case NETWORK_TYPE_2G: {
             nbiotNetwork.sleep();
             break;
@@ -194,8 +213,11 @@ void Network::sleep()
 void Network::setActive(bool on)
 {
     switch (_networkType) {
+    case NETWORK_TYPE_NBIOT_N2: {
+        n2xNetwork.setActive(on);
+        break;
+    }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_NBIOT_N2:
     case NETWORK_TYPE_2G: {
         nbiotNetwork.setActive(on);
         break;
@@ -222,8 +244,10 @@ void Network::setActive(bool on)
 uint32_t Network::getBaudRate()
 {
     switch (_networkType) {
+        case NETWORK_TYPE_NBIOT_N2: {
+            return n2xNetwork.getBaudRate();
+        }
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_NBIOT_N2:
         case NETWORK_TYPE_2G: {
             return nbiotNetwork.getBaudRate();
         }
@@ -263,8 +287,11 @@ const char* Network::getIMEI()
         bool success = false;
 
         switch (_networkType) {
+            case NETWORK_TYPE_NBIOT_N2: {
+                success = n2xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
             case NETWORK_TYPE_NBIOT_R4:
-            case NETWORK_TYPE_NBIOT_N2:
             case NETWORK_TYPE_2G: {
                 success = nbiotNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
@@ -306,8 +333,11 @@ const char* Network::getModuleVersion()
         bool success = false;
 
         switch (_networkType) {
+        case NETWORK_TYPE_NBIOT_N2: {
+            success = n2xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
+            break;
+        }
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_NBIOT_N2:
         case NETWORK_TYPE_2G: {
             success = nbiotNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
