@@ -80,10 +80,10 @@ bool N2xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
     n2x.init(&saraN211OnOff, modemStream, params.getCID());
 
     if (join == INIT_JOIN) {
-        setActive(true);
-    }
-    else {
+        setActive(true, false);
+    } else {
         n2x.on();
+        n2x.purgeAllResponsesRead();
     }
 
     return n2x.isAlive();
@@ -93,11 +93,15 @@ bool N2xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
 * Turns the nbiot module on or off (and connects/disconnects)
 */
 
-void N2xNetwork::setActive(bool on)
+void N2xNetwork::setActive(bool on, bool needCheckConnection)
 {
     sodaq_wdt_reset();
 
-    if (on && !n2x.isConnected() && !n2x.connect(params._apn, NULL, params._forceOperator, params._band)) {
+    if (!on || (needCheckConnection && n2x.isConnected())) {
+        return;
+    }
+
+    if (!n2x.connect(params._apn, NULL, params._forceOperator, params._band)) {
         n2x.off();
         sodaq_wdt_safe_delay(450);
         n2x.on();

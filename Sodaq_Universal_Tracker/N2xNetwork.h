@@ -45,7 +45,7 @@ public:
     /**
     * Turns the nbiot module on or off (and connects/disconnects)
     */
-    void setActive(bool on);
+    void setActive(bool on, bool needCheckConnection = true);
 
     uint8_t transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout);
 
