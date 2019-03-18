@@ -112,12 +112,11 @@ void N2xNetwork::setActive(bool on, bool needCheckConnection)
     }
 }
 
-uint8_t N2xNetwork::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
+uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 {
     setActive(true);
 
-    debugPrintLn();
-    debugPrintLn("Sending message through UDP");
+    debugPrintLn("\n\rSending message through UDP");
 
     int socketID = n2x.createSocket(16666);
 
@@ -131,11 +130,15 @@ uint8_t N2xNetwork::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
     // wait for data
     if (n2x.waitForUDPResponse(socketID, rxTimeout)) {
         debugPrintLn("Received UDP response...");
-        while (n2x.hasPendingUDPBytes(socketID)) {
+
+        uint32_t startTime = millis();
+
+        while (n2x.hasPendingUDPBytes(socketID) && (millis() - startTime) < 20000) {
             uint8_t data[128];
             int size = n2x.socketReceiveBytes(socketID, data, sizeof(data));
             if (size) {
                 _callback(data, size);
+                startTime = millis();
             }
             else {
                 debugPrintLn("Receive failed!");
