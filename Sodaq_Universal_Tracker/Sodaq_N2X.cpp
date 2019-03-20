@@ -54,8 +54,8 @@
 #define debugPrintLn(...)
 #endif
 
-#define NL '\n'
 #define CR '\r'
+#define LF '\n'
 
 #define SOCKET_FAIL -1
 #define NOW (uint32_t)millis()
@@ -78,6 +78,11 @@ static NameValuePair nConfig[nConfigCount] = {
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) { return (millis() - from) > nr_ms; }
 
+
+/******************************************************************************
+* Main
+*****************************************************************************/
+
 Sodaq_N2X::Sodaq_N2X() :
     _modemStream(0),
     _diagStream(0),
@@ -95,12 +100,6 @@ Sodaq_N2X::Sodaq_N2X() :
     memset(_pendingUDPBytes, 0, sizeof(_pendingUDPBytes));
 }
 
-// Returns true if the modem replies to "AT" commands without timing out.
-bool Sodaq_N2X::isAlive()
-{
-    return execCommand(STR_AT, 450);
-}
-
 // Initializes the modem instance. Sets the modem stream and the on-off power pins.
 void Sodaq_N2X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
 {
@@ -114,34 +113,104 @@ void Sodaq_N2X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
     _cid   = cid;
 }
 
-// Gets International Mobile Equipment Identity.
-// Should be provided with a buffer of at least 16 bytes.
-// Returns true if successful.
-bool Sodaq_N2X::getIMEI(char* buffer, size_t size)
+// Turns the modem on and returns true if successful.
+bool Sodaq_N2X::on()
 {
-    if (buffer == NULL || size < 15 + 1) {
+    _startOn = millis();
+
+    if (!isOn() && _onoff) {
+        _onoff->on();
+    }
+
+    // wait for power up
+    bool timeout = true;
+    for (uint8_t i = 0; i < 10; i++) {
+        if (isAlive()) {
+            timeout = false;
+            break;
+        }
+    }
+
+    if (timeout) {
+        debugPrintLn("Error: No Reply from Modem");
         return false;
     }
 
-    println("AT+CGSN=1");
-
-    return (readResponse(buffer, size, "+CGSN: ") == GSMResponseOK) && (strlen(buffer) > 0);
+    return isOn(); // this essentially means isOn() && isAlive()
 }
 
-bool Sodaq_N2X::getFirmwareVersion(char* buffer, size_t size)
+// Turns the modem off and returns true if successful.
+bool Sodaq_N2X::off()
 {
-    if (buffer == NULL || size < 30 + 1) {
+    // No matter if it is on or off, turn it off.
+    if (_onoff) {
+        _onoff->off();
+    }
+
+    return !isOn();
+}
+
+// Turns on and initializes the modem, then connects to the network and activates the data connection.
+bool Sodaq_N2X::connect(const char* apn, const char* cdp, const char* forceOperator, uint8_t band)
+{
+    if (!on()) {
         return false;
     }
 
-    return execCommand("AT+CGMR", DEFAULT_READ_MS, buffer, size);
+    purgeAllResponsesRead();
+
+    if (!setVerboseErrors(true) || !setBand(band) || !checkAndApplyNconfig()) {
+        return false;
+    }
+
+    reboot();
+
+    if (!on()) {
+        return false;
+    }
+
+    purgeAllResponsesRead();
+
+    return setVerboseErrors(true)      &&
+           setRadioActive(true)        &&
+           setIndicationsActive(false) &&
+           setApn(apn)                 &&
+           setCdp(cdp)                 &&
+           setOperator(forceOperator)  &&
+           waitForSignalQuality()      &&
+           attachGprs();
 }
 
-bool Sodaq_N2X::execCommand(const char* command, uint32_t timeout, char* buffer, size_t size)
+// Disconnects the modem from the network.
+bool Sodaq_N2X::disconnect()
 {
-    println(command);
+    return execCommand("AT+CGATT=0", 40000);
+}
 
-    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
+
+/******************************************************************************
+* Public
+*****************************************************************************/
+
+bool Sodaq_N2X::attachGprs(uint32_t timeout)
+{
+    uint32_t start = millis();
+    uint32_t delay_count = 500;
+
+    while (!is_timedout(start, timeout)) {
+        if (isAttached()) {
+            return true;
+        }
+
+        sodaq_wdt_safe_delay(delay_count);
+
+        // Next time wait a little longer, but not longer than 5 seconds
+        if (delay_count < 5000) {
+            delay_count += 1000;
+        }
+    }
+
+    return false;
 }
 
 // Gets Integrated Circuit Card ID.
@@ -158,17 +227,156 @@ bool Sodaq_N2X::getCCID(char* buffer, size_t size)
     return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
 }
 
-bool Sodaq_N2X::setRadioActive(bool on)
+bool Sodaq_N2X::getEpoch(uint32_t* epoch)
 {
-    print("AT+CFUN=");
-    println(on ? '1' : '0');
+    println("AT+CCLK?");
+
+    char buffer[128];
+
+    if (readResponse(buffer, sizeof(buffer), "+CCLK: ") != GSMResponseOK) {
+        return false;
+    }
+
+    // format: "yy/MM/dd,hh:mm:ss+TZ
+    int y, m, d, h, min, sec, tz;
+    if (sscanf(buffer, "\"%d/%d/%d,%d:%d:%d+%d\"", &y, &m, &d, &h, &min, &sec, &tz) == 7 ||
+        sscanf(buffer, "\"%d/%d/%d,%d:%d:%d\"", &y, &m, &d, &h, &min, &sec) == 6)
+    {
+        *epoch = convertDatetimeToEpoch(y, m, d, h, min, sec);
+        return true;
+    }
+
+    return false;
+}
+
+bool Sodaq_N2X::getFirmwareVersion(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("AT+CGMR", DEFAULT_READ_MS, buffer, size);
+}
+
+// Gets International Mobile Equipment Identity.
+// Should be provided with a buffer of at least 16 bytes.
+// Returns true if successful.
+bool Sodaq_N2X::getIMEI(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 15 + 1) {
+        return false;
+    }
+
+    println("AT+CGSN=1");
+
+    return (readResponse(buffer, size, "+CGSN: ") == GSMResponseOK) && (strlen(buffer) > 0);
+}
+
+bool Sodaq_N2X::execCommand(const char* command, uint32_t timeout, char* buffer, size_t size)
+{
+    println(command);
+
+    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
+}
+
+// Returns true if the modem replies to "AT" commands without timing out.
+bool Sodaq_N2X::isAlive()
+{
+    return execCommand(STR_AT, 450);
+}
+
+// Returns true if the modem is attached to the network and has an activated data connection.
+bool Sodaq_N2X::isAttached()
+{
+    println("AT+CGATT?");
+
+    char buffer[16];
+
+    if (readResponse(buffer, sizeof(buffer), "+CGATT: ", 10 * 1000) != GSMResponseOK) {
+        return false;
+    }
+
+    return (strcmp(buffer, "1") == 0);
+}
+
+// Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
+bool Sodaq_N2X::isConnected()
+{
+    return isAttached() && waitForSignalQuality(ISCONNECTED_CSQ_TIMEOUT);
+}
+
+bool Sodaq_N2X::overrideNconfigParam(const char* param, bool value)
+{
+    for (uint8_t i = 0; i < nConfigCount; i++) {
+        if (strcmp(nConfig[i].Name, param) == 0) {
+            nConfig[i].Value = value;
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Sodaq_N2X::ping(const char* ip)
+{
+    print("AT+NPING=\"");
+    print(ip);
+    println('"');
 
     return (readResponse() == GSMResponseOK);
 }
 
-bool Sodaq_N2X::setVerboseErrors(bool on)
+void Sodaq_N2X::purgeAllResponsesRead()
 {
-    print("AT+CMEE=");
+    uint32_t start = millis();
+
+    // make sure all the responses within the timeout have been read
+    while ((readResponse(NULL, 0, NULL, 1000) != GSMResponseTimeout) && !is_timedout(start, 2000)) {}
+}
+
+bool Sodaq_N2X::setApn(const char* apn)
+{
+    print("AT+CGDCONT=");
+    print(_cid);
+    print(",\"IP\",\"");
+    print(apn);
+    println('"');
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N2X::setBand(uint8_t band)
+{
+    print("AT+NBAND=");
+    println(band);
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N2X::setCdp(const char* cdp)
+{
+    if (cdp == NULL || cdp[0] == 0) {
+        debugPrintLn("Skipping empty CDP");
+        return true;
+    }
+
+    print("AT+NCDP=\"");
+    print(cdp);
+    println('"');
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N2X::setIndicationsActive(bool on)
+{
+    print("AT+NSMI=");
+    println(on ? '1' : '0');
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    print("AT+NNMI=");
     println(on ? '1' : '0');
 
     return (readResponse() == GSMResponseOK);
@@ -193,19 +401,406 @@ bool Sodaq_N2X::setOperator(const char* opr)
     return (readResponse(NULL, 0, NULL, COPS_TIMEOUT) == GSMResponseOK);
 }
 
-bool Sodaq_N2X::setIndicationsActive(bool on)
+bool Sodaq_N2X::setRadioActive(bool on)
 {
-    print("AT+NSMI=");
+    print("AT+CFUN=");
     println(on ? '1' : '0');
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N2X::setVerboseErrors(bool on)
+{
+    print("AT+CMEE=");
+    println(on ? '1' : '0');
+
+    return (readResponse() == GSMResponseOK);
+}
+
+
+/******************************************************************************
+* RSSI and CSQ
+*****************************************************************************/
+
+/*
+    The range is the following:
+    0: -113 dBm or less
+    1: -111 dBm
+    2..30: from -109 to -53 dBm with 2 dBm steps
+    31: -51 dBm or greater
+    99: not known or not detectable or currently not available
+*/
+int8_t Sodaq_N2X::convertCSQ2RSSI(uint8_t csq) const
+{
+    return -113 + 2 * csq;
+}
+
+uint8_t Sodaq_N2X::convertRSSI2CSQ(int8_t rssi) const
+{
+    return (rssi + 113) / 2;
+}
+
+// Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
+// Returns true if successful.
+bool Sodaq_N2X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
+{
+    static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
+
+    println("AT+CSQ");
+
+    char buffer[256];
+
+    if (readResponse(buffer, sizeof(buffer), "+CSQ: ") != GSMResponseOK) {
+        return false;
+    }
+
+    int csqRaw;
+    int berRaw;
+
+    if (sscanf(buffer, "%d,%d", &csqRaw, &berRaw) != 2) {
+        return false;
+    }
+
+    *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
+    *ber  = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
+
+    return true;
+}
+
+
+/******************************************************************************
+* Sockets
+*****************************************************************************/
+
+int Sodaq_N2X::createSocket(uint16_t localPort)
+{
+    // only Datagram/UDP is supported
+    print("AT+NSOCR=\"DGRAM\",17,");
+    print(localPort);
+    println(",1");
+
+    char buffer[32];
+
+    if (readResponse(buffer, sizeof(buffer)) != GSMResponseOK) {
+        return SOCKET_FAIL;
+    }
+
+    int socketID;
+
+    if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SOCKET_COUNT)) {
+        return SOCKET_FAIL;
+    }
+
+    _pendingUDPBytes[socketID] = 0;
+
+    return socketID;
+}
+
+bool Sodaq_N2X::closeSocket(uint8_t socketID)
+{
+    // only Datagram/UDP is supported
+    print("AT+NSOCL=");
+    println(socketID);
 
     if (readResponse() != GSMResponseOK) {
         return false;
     }
 
-    print("AT+NNMI=");
-    println(on ? '1' : '0');
+    _pendingUDPBytes[socketID] = 0;
+
+    return true;
+}
+
+size_t Sodaq_N2X::getPendingUDPBytes(uint8_t socketID)
+{
+    return _pendingUDPBytes[socketID];
+}
+
+bool Sodaq_N2X::hasPendingUDPBytes(uint8_t socketID)
+{
+    return _pendingUDPBytes[socketID] > 0;
+}
+
+size_t Sodaq_N2X::socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p)
+{
+    size_t size = min(length, min(SODAQ_N2X_MAX_UDP_BUFFER, _pendingUDPBytes[socketID]));
+
+    SaraN2UDPPacketMetadata packet;
+
+    char tempBuffer[SODAQ_N2X_MAX_UDP_BUFFER];
+
+    size_t receivedSize = socketReceive(socketID, p ? p : &packet, tempBuffer, size);
+
+    if (buffer && length > 0) {
+        for (size_t i = 0; i < receivedSize * 2; i += 2) {
+            buffer[i / 2] = HEX_PAIR_TO_BYTE(tempBuffer[i], tempBuffer[i + 1]);
+        }
+    }
+
+    return receivedSize;
+}
+
+size_t Sodaq_N2X::socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p)
+{
+    SaraN2UDPPacketMetadata packet;
+
+    size_t receiveSize = length / 2;
+
+    receiveSize = min(receiveSize, _pendingUDPBytes[socketID]);
+
+    return socketReceive(socketID, p ? p : &packet, buffer, receiveSize);
+}
+
+size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str)
+{
+    return socketSend(socketID, remoteIP, remotePort, (uint8_t *)str, strlen(str));
+}
+
+size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size)
+{
+    if (size > SODAQ_MAX_UDP_SEND_MESSAGE_SIZE) {
+        debugPrintLn("Message exceeded maximum size!");
+        return 0;
+    }
+
+    // only Datagram/UDP is supported
+    print("AT+NSOST=");
+    print(socketID);
+    print(",\"");
+    print(remoteIP);
+    print("\",");
+    print(remotePort);
+    print(',');
+    print(size);
+    print(",\"");
+
+    for (size_t i = 0; i < size; ++i) {
+        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
+        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
+    }
+
+    println('"');
+
+    char outBuffer[64];
+
+    if (readResponse(outBuffer, sizeof(outBuffer)) != GSMResponseOK) {
+        return 0;
+    }
+
+    int retSocketID;
+    int sentLength;
+
+    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
+        return 0;
+    }
+
+    return sentLength;
+}
+
+bool Sodaq_N2X::waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS)
+{
+    if (hasPendingUDPBytes(socketID)) {
+        return true;
+    }
+
+    uint32_t startTime = millis();
+
+    while (!hasPendingUDPBytes(socketID) && (millis() - startTime) < timeoutMS) {
+        isAlive();
+        sodaq_wdt_safe_delay(10);
+    }
+
+    return hasPendingUDPBytes(socketID);
+}
+
+
+/******************************************************************************
+* Messsages
+*****************************************************************************/
+
+bool Sodaq_N2X::getReceivedMessagesCount(ReceivedMessageStatus* status)
+{
+    char buffer[128];
+
+    if (!execCommand("AT+NQMGS", DEFAULT_READ_MS, buffer, sizeof(buffer))) {
+        return false;
+    }
+
+    int buffered;
+    int received;
+    int dropped;
+
+    if (sscanf(buffer, "BUFFERED=%d,RECEIVED=%d,DROPPED=%d", &buffered, &received, &dropped) != 3) {
+        return false;
+    }
+
+    status->pending           = buffered;
+    status->receivedSinceBoot = received;
+    status->droppedSinceBoot  = dropped;
+
+    return true;
+}
+
+int Sodaq_N2X::getSentMessagesCount(SentMessageStatus filter)
+{
+    char buffer[128];
+
+    if (!execCommand("AT+NQMGS", DEFAULT_READ_MS, buffer, sizeof(buffer))) {
+        return -1;
+    }
+
+    int pendingCount;
+    int errorCount;
+
+    if (sscanf(buffer, "PENDING=%d,SENT=%*d,ERROR=%d", &pendingCount, &errorCount) == 2) {
+        if (filter == Pending) {
+            return pendingCount;
+        }
+
+        if (filter == Error) {
+            return errorCount;
+        }
+    }
+
+    return -1;
+}
+
+// NOTE! Need to send data ( sendMessage() ) before receiving
+size_t Sodaq_N2X::receiveMessage(char* buffer, size_t size)
+{
+    char outBuffer[1024];
+
+    if (!execCommand("AT+NMGR", DEFAULT_READ_MS, outBuffer, sizeof(outBuffer))) {
+        return 0;
+    }
+
+    size_t receivedLength;
+
+    if (sscanf(outBuffer, "%d,\"%s\"", &receivedLength, buffer) == 2) {
+        // length contains the length of the passed buffer
+        // this guards against overflowing the passed buffer
+        if (receivedLength * 2 <= size) {
+            return receivedLength * 2;
+        }
+    }
+
+    return 0;
+}
+
+bool Sodaq_N2X::sendMessage(const uint8_t* buffer, size_t size)
+{
+    if (size > 512) {
+        return false;
+    }
+
+    print("AT+NMGS=");
+    print(size);
+    print(",\"");
+
+    for (uint16_t i = 0; i < size; ++i) {
+        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
+        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
+    }
+
+    println('"');
 
     return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N2X::sendMessage(const char* str)
+{
+    return sendMessage((const uint8_t*)str, strlen(str));
+}
+
+bool Sodaq_N2X::sendMessage(String str)
+{
+    return sendMessage(str.c_str());
+}
+
+
+/******************************************************************************
+* Private
+*****************************************************************************/
+
+bool Sodaq_N2X::checkAndApplyNconfig()
+{
+    println("AT+NCONFIG?");
+
+    char buffer[1024];
+
+    if (readResponse(buffer, sizeof(buffer), "+NCONFIG: ") != GSMResponseOK) {
+        return false;
+    }
+
+    size_t size = strlen(buffer);
+    size_t offs = 0;
+
+    while (offs < size && buffer[offs] != 0) {
+        char name[32];
+        char value[32];
+
+        if (sscanf(buffer + offs, "\"%[^\"]\",\"%[^\"]\"", name, value) != 2) {
+            break;
+        }
+
+        for (uint8_t i = 0; i < nConfigCount; i++) {
+            if (strcmp(nConfig[i].Name, name) == 0) {
+                debugPrint(nConfig[i].Name);
+
+                const char* v = nConfig[i].Value ? "TRUE" : "FALSE";
+
+                if (strcmp(value, v) == 0) {
+                    debugPrintLn("... OK");
+                }
+                else {
+                    debugPrintLn("... CHANGE");
+                    setNconfigParam(nConfig[i].Name, v);
+                }
+
+                break;
+            }
+        }
+
+        offs += 6;
+        while (offs < sizeof(buffer) && buffer[offs] != 0 && buffer[offs - 1] != LF) {
+            offs++;
+        }
+    }
+
+    return true;
+}
+
+bool Sodaq_N2X::checkURC(char* buffer)
+{
+    if (buffer[0] != '+') {
+        return false;
+    }
+
+    int param1, param2;
+
+    if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) {
+        #ifdef DEBUG
+        debugPrint("Unsolicited: FOTA: ");
+        debugPrint(param1);
+        debugPrint(", ");
+        debugPrintLn(param2);
+        #endif
+
+        return true;
+    }
+
+    if ((sscanf(buffer, "+NSONMI: %d,%d", &param1, &param2) == 2) && (param1 >= 0) && (param1 <= 6)) {
+        debugPrint("Unsolicited: Socket ");
+        debugPrint(param1);
+        debugPrint(": ");
+        debugPrintLn(param2);
+
+        _pendingUDPBytes[param1] = param2;
+
+        return true;
+    }
+
+    return false;
 }
 
 /**
@@ -262,7 +857,7 @@ GSMResponseTypes Sodaq_N2X::readResponse(char* outBuffer, size_t outMaxSize, con
 
         if (hasPrefix || (!usePrefix && useOutBuffer)) {
             if (outSize > 0 && outSize < outMaxSize - 1) {
-                outBuffer[outSize++] = NL;
+                outBuffer[outSize++] = LF;
             }
 
             if (outSize < outMaxSize - 1) {
@@ -287,100 +882,6 @@ GSMResponseTypes Sodaq_N2X::readResponse(char* outBuffer, size_t outMaxSize, con
     return GSMResponseTimeout;
 }
 
-bool Sodaq_N2X::setApn(const char* apn)
-{
-    print("AT+CGDCONT=");
-    print(_cid);
-    print(",\"IP\",\"");
-    print(apn);
-    println('"');
-
-    return (readResponse() == GSMResponseOK);
-}
-
-bool Sodaq_N2X::getEpoch(uint32_t* epoch)
-{
-    println("AT+CCLK?");
-
-    char buffer[128];
-
-    if (readResponse(buffer, sizeof(buffer), "+CCLK: ") != GSMResponseOK) {
-        return false;
-    }
-
-    // format: "yy/MM/dd,hh:mm:ss+TZ
-    int y, m, d, h, min, sec, tz;
-    if (sscanf(buffer, "\"%d/%d/%d,%d:%d:%d+%d\"", &y, &m, &d, &h, &min, &sec, &tz) == 7 ||
-        sscanf(buffer, "\"%d/%d/%d,%d:%d:%d\"", &y, &m, &d, &h, &min, &sec) == 6)
-    {
-        *epoch = convertDatetimeToEpoch(y, m, d, h, min, sec);
-        return true;
-    }
-
-    return false;
-}
-
-bool Sodaq_N2X::setCdp(const char* cdp)
-{
-    if (cdp == NULL || cdp[0] == 0) {
-        debugPrintLn("Skipping empty CDP");
-        return true;
-    }
-
-    print("AT+NCDP=\"");
-    print(cdp);
-    println('"');
-
-    return (readResponse() == GSMResponseOK);
-}
-
-bool Sodaq_N2X::setBand(uint8_t band)
-{
-    print("AT+NBAND=");
-    println(band);
-
-    return (readResponse() == GSMResponseOK);
-}
-
-void Sodaq_N2X::purgeAllResponsesRead()
-{
-    uint32_t start = millis();
-
-    // make sure all the responses within the timeout have been read
-    while ((readResponse(NULL, 0, NULL, 1000) != GSMResponseTimeout) && !is_timedout(start, 2000)) {}
-}
-
-// Turns on and initializes the modem, then connects to the network and activates the data connection.
-bool Sodaq_N2X::connect(const char* apn, const char* cdp, const char* forceOperator, uint8_t band)
-{
-    if (!on()) {
-        return false;
-    }
-
-    purgeAllResponsesRead();
-
-    if (!setVerboseErrors(true) || !setBand(band) || !checkAndApplyNconfig()) {
-        return false;
-    }
-
-    reboot();
-
-    if (!on()) {
-        return false;
-    }
-
-    purgeAllResponsesRead();
-
-    return setVerboseErrors(true)      &&
-           setRadioActive(true)        &&
-           setIndicationsActive(false) &&
-           setApn(apn)                 &&
-           setCdp(cdp)                 &&
-           setOperator(forceOperator)  &&
-           waitForSignalQuality()      &&
-           attachGprs();
-}
-
 void Sodaq_N2X::reboot()
 {
     println("AT+NRB");
@@ -389,95 +890,6 @@ void Sodaq_N2X::reboot()
     uint32_t start = millis();
 
     while ((readResponse() != GSMResponseOK) && !is_timedout(start, 2000)) {}
-}
-
-bool Sodaq_N2X::checkAndApplyNconfig()
-{
-    println("AT+NCONFIG?");
-
-    char buffer[1024];
-
-    if (readResponse(buffer, sizeof(buffer), "+NCONFIG: ") != GSMResponseOK) {
-        return false;
-    }
-
-    size_t size = strlen(buffer);
-    size_t offs = 0;
-
-    while (offs < size && buffer[offs] != 0) {
-        char name[32];
-        char value[32];
-
-        if (sscanf(buffer + offs, "\"%[^\"]\",\"%[^\"]\"", name, value) != 2) {
-            break;
-        }
-
-        for (uint8_t i = 0; i < nConfigCount; i++) {
-            if (strcmp(nConfig[i].Name, name) == 0) {
-                debugPrint(nConfig[i].Name);
-
-                const char* v = nConfig[i].Value ? "TRUE" : "FALSE";
-
-                if (strcmp(value, v) == 0) {
-                    debugPrintLn("... OK");
-                }
-                else {
-                    debugPrintLn("... CHANGE");
-                    setNconfigParam(nConfig[i].Name, v);
-                }
-
-                break;
-            }
-        }
-
-        offs += 6;
-        while (offs < sizeof(buffer) && buffer[offs] != 0 && buffer[offs - 1] != NL) {
-            offs++;
-        }
-    }
-
-    return true;
-}
-
-bool Sodaq_N2X::checkURC(char* buffer)
-{
-    if (buffer[0] != '+') {
-        return false;
-    }
-
-    int param1, param2;
-
-    if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) { // Handle FOTA URC
-        #ifdef DEBUG
-        uint16_t blkRm = param1;
-        uint8_t transferStatus = param2;
-
-        debugPrint("Unsolicited: FOTA: ");
-        debugPrint(blkRm);
-        debugPrint(", ");
-        debugPrintLn(transferStatus);
-        #endif
-
-        return true;
-    }
-
-    if (sscanf(buffer, "+NSONMI: %d,%d", &param1, &param2) == 2) { // Handle socket URC for N2
-        int socketID = param1;
-        int dataLength = param2;
-
-        if (socketID >= 0 && socketID <= 6) {
-            debugPrint("Unsolicited: Socket ");
-            debugPrint(socketID);
-            debugPrint(": ");
-            debugPrintLn(dataLength);
-
-            _pendingUDPBytes[socketID] = dataLength;
-        }
-
-        return true;
-    }
-
-    return false;
 }
 
 bool Sodaq_N2X::setNconfigParam(const char* param, const char* value)
@@ -489,159 +901,6 @@ bool Sodaq_N2X::setNconfigParam(const char* param, const char* value)
     println('"');
 
     return (readResponse() == GSMResponseOK);
-}
-
-bool Sodaq_N2X::overrideNconfigParam(const char* param, bool value)
-{
-    for (uint8_t i = 0; i < nConfigCount; i++) {
-        if (strcmp(nConfig[i].Name, param) == 0) {
-            nConfig[i].Value = value;
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool Sodaq_N2X::attachGprs(uint32_t timeout)
-{
-    uint32_t start = millis();
-    uint32_t delay_count = 500;
-
-    while (!is_timedout(start, timeout)) {
-        if (isAttached()) {
-            return true;
-        }
-
-        sodaq_wdt_safe_delay(delay_count);
-
-        // Next time wait a little longer, but not longer than 5 seconds
-        if (delay_count < 5000) {
-            delay_count += 1000;
-        }
-    }
-
-    return false;
-}
-
-int Sodaq_N2X::createSocket(uint16_t localPort)
-{
-    // only Datagram/UDP is supported
-    print("AT+NSOCR=\"DGRAM\",17,");
-    print(localPort);
-    println(",1");
-
-    char buffer[32];
-
-    if (readResponse(buffer, sizeof(buffer)) != GSMResponseOK) {
-        return SOCKET_FAIL;
-    }
-
-    int socketID;
-
-    if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SOCKET_COUNT)) {
-        return SOCKET_FAIL;
-    }
-
-    _pendingUDPBytes[socketID] = 0;
-
-    return socketID;
-}
-
-bool Sodaq_N2X::closeSocket(uint8_t socketID)
-{
-    // only Datagram/UDP is supported
-    print("AT+NSOCL=");
-    println(socketID);
-
-    if (readResponse() != GSMResponseOK) {
-        return false;
-    }
-
-    _pendingUDPBytes[socketID] = 0;
-
-    return true;
-}
-
-bool Sodaq_N2X::ping(const char* ip)
-{
-    print("AT+NPING=\"");
-    print(ip);
-    println('"');
-
-    return (readResponse() == GSMResponseOK);
-}
-
-size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size)
-{
-    if (size > SODAQ_MAX_UDP_SEND_MESSAGE_SIZE) {
-        debugPrintLn("Message exceeded maximum size!");
-        return 0;
-    }
-
-    // only Datagram/UDP is supported
-    print("AT+NSOST=");
-    print(socketID);
-    print(",\"");
-    print(remoteIP);
-    print("\",");
-    print(remotePort);
-    print(',');
-    print(size);
-    print(",\"");
-
-    for (size_t i = 0; i < size; ++i) {
-        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
-        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
-    }
-
-    println('"');
-
-    char outBuffer[64];
-
-    if (readResponse(outBuffer, sizeof(outBuffer)) != GSMResponseOK) {
-        return 0;
-    }
-
-    int retSocketID;
-    int sentLength;
-
-    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
-        return 0;
-    }
-
-    return sentLength;
-}
-
-size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str)
-{
-    return socketSend(socketID, remoteIP, remotePort, (uint8_t *)str, strlen(str));
-}
-
-bool Sodaq_N2X::waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS)
-{
-    if (hasPendingUDPBytes(socketID)) {
-        return true;
-    }
-
-    uint32_t startTime = millis();
-
-    while (!hasPendingUDPBytes(socketID) && (millis() - startTime) < timeoutMS) {
-        isAlive();
-        sodaq_wdt_safe_delay(10);
-    }
-
-    return hasPendingUDPBytes(socketID);
-}
-
-size_t Sodaq_N2X::getPendingUDPBytes(uint8_t socketID)
-{
-    return _pendingUDPBytes[socketID];
-}
-
-bool Sodaq_N2X::hasPendingUDPBytes(uint8_t socketID)
-{
-    return _pendingUDPBytes[socketID] > 0;
 }
 
 size_t Sodaq_N2X::socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size)
@@ -679,112 +938,6 @@ size_t Sodaq_N2X::socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packe
     return packet->length;
 }
 
-size_t Sodaq_N2X::socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p)
-{
-    SaraN2UDPPacketMetadata packet;
-
-    size_t receiveSize = length / 2;
-
-    receiveSize = min(receiveSize, _pendingUDPBytes[socketID]);
-
-    return socketReceive(socketID, p ? p : &packet, buffer, receiveSize);
-}
-
-size_t Sodaq_N2X::socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p)
-{
-    size_t size = min(length, min(SODAQ_N2X_MAX_UDP_BUFFER, _pendingUDPBytes[socketID]));
-
-    SaraN2UDPPacketMetadata packet;
-
-    char tempBuffer[SODAQ_N2X_MAX_UDP_BUFFER];
-
-    size_t receivedSize = socketReceive(socketID, p ? p : &packet, tempBuffer, size);
-
-    if (buffer && length > 0) {
-        for (size_t i = 0; i < receivedSize * 2; i += 2) {
-            buffer[i / 2] = HEX_PAIR_TO_BYTE(tempBuffer[i], tempBuffer[i + 1]);
-        }
-    }
-
-    return receivedSize;
-}
-
-// Disconnects the modem from the network.
-bool Sodaq_N2X::disconnect()
-{
-    return execCommand("AT+CGATT=0", 40000);
-}
-
-// Returns true if the modem is attached to the network and has an activated data connection.
-bool Sodaq_N2X::isAttached()
-{
-    println("AT+CGATT?");
-
-    char buffer[16];
-
-    if (readResponse(buffer, sizeof(buffer), "+CGATT: ", 10 * 1000) != GSMResponseOK) {
-        return false;
-    }
-
-    return (strcmp(buffer, "1") == 0);
-}
-
-// Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
-bool Sodaq_N2X::isConnected()
-{
-    return isAttached() && waitForSignalQuality(ISCONNECTED_CSQ_TIMEOUT);
-}
-
-// Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
-// Returns true if successful.
-bool Sodaq_N2X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
-{
-    static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
-
-    println("AT+CSQ");
-
-    char buffer[256];
-
-    if (readResponse(buffer, sizeof(buffer), "+CSQ: ") != GSMResponseOK) {
-        return false;
-    }
-
-    int csqRaw;
-    int berRaw;
-
-    if (sscanf(buffer, "%d,%d", &csqRaw, &berRaw) != 2) {
-        return false;
-    }
-
-    *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
-    *ber  = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
-
-    return true;
-}
-
-/*
-    The range is the following:
-    0: -113 dBm or less
-    1: -111 dBm
-    2..30: from -109 to -53 dBm with 2 dBm steps
-    31: -51 dBm or greater
-    99: not known or not detectable or currently not available
-*/
-int8_t Sodaq_N2X::convertCSQ2RSSI(uint8_t csq) const
-{
-    return -113 + 2 * csq;
-}
-
-uint8_t Sodaq_N2X::convertRSSI2CSQ(int8_t rssi) const
-{
-    return (rssi + 113) / 2;
-}
-
-bool Sodaq_N2X::startsWith(const char* pre, const char* str)
-{
-    return (strncmp(pre, str, strlen(pre)) == 0);
-}
-
 bool Sodaq_N2X::waitForSignalQuality(uint32_t timeout)
 {
     uint32_t start = millis();
@@ -814,6 +967,11 @@ bool Sodaq_N2X::waitForSignalQuality(uint32_t timeout)
     return false;
 }
 
+
+/******************************************************************************
+* Utils
+*****************************************************************************/
+
 uint32_t Sodaq_N2X::convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec)
 {
     struct tm tm;
@@ -831,146 +989,15 @@ uint32_t Sodaq_N2X::convertDatetimeToEpoch(int y, int m, int d, int h, int min, 
     return mktime(&tm);
 }
 
-bool Sodaq_N2X::sendMessage(const uint8_t* buffer, size_t size)
+bool Sodaq_N2X::startsWith(const char* pre, const char* str)
 {
-    if (size > 512) {
-        return false;
-    }
-
-    print("AT+NMGS=");
-    print(size);
-    print(",\"");
-
-    for (uint16_t i = 0; i < size; ++i) {
-        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
-        print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
-    }
-
-    println('"');
-
-    return (readResponse() == GSMResponseOK);
-}
-
-// NOTE! Need to send data ( sendMessage() ) before receiving
-size_t Sodaq_N2X::receiveMessage(char* buffer, size_t size)
-{
-    char outBuffer[1024];
-
-    if (!execCommand("AT+NMGR", DEFAULT_READ_MS, outBuffer, sizeof(outBuffer))) {
-        return 0;
-    }
-
-    size_t receivedLength;
-
-    if (sscanf(outBuffer, "%d,\"%s\"", &receivedLength, buffer) == 2) {
-        // length contains the length of the passed buffer
-        // this guards against overflowing the passed buffer
-        if (receivedLength * 2 <= size) {
-            return receivedLength * 2;
-        }
-    }
-
-    return 0;
-}
-
-int Sodaq_N2X::getSentMessagesCount(SentMessageStatus filter)
-{
-    char buffer[128];
-
-    if (!execCommand("AT+NQMGS", DEFAULT_READ_MS, buffer, sizeof(buffer))) {
-        return -1;
-    }
-
-    int pendingCount;
-    int errorCount;
-
-    if (sscanf(buffer, "PENDING=%d,SENT=%*d,ERROR=%d", &pendingCount, &errorCount) == 2) {
-        if (filter == Pending) {
-            return pendingCount;
-        }
-
-        if (filter == Error) {
-            return errorCount;
-        }
-    }
-
-    return -1;
-}
-
-bool Sodaq_N2X::getReceivedMessagesCount(ReceivedMessageStatus* status)
-{
-    char buffer[128];
-
-    if (!execCommand("AT+NQMGS", DEFAULT_READ_MS, buffer, sizeof(buffer))) {
-        return false;
-    }
-
-    int buffered;
-    int received;
-    int dropped;
-
-    if (sscanf(buffer, "BUFFERED=%d,RECEIVED=%d,DROPPED=%d", &buffered, &received, &dropped) != 3) {
-        return false;
-    }
-
-    status->pending           = buffered;
-    status->receivedSinceBoot = received;
-    status->droppedSinceBoot  = dropped;
-
-    return true;
-}
-
-bool Sodaq_N2X::sendMessage(const char* str)
-{
-    return sendMessage((const uint8_t*)str, strlen(str));
-}
-
-bool Sodaq_N2X::sendMessage(String str)
-{
-    return sendMessage(str.c_str());
+    return (strncmp(pre, str, strlen(pre)) == 0);
 }
 
 
 /******************************************************************************
 * Generic
 *****************************************************************************/
-
-// Turns the modem on and returns true if successful.
-bool Sodaq_N2X::on()
-{
-    _startOn = millis();
-
-    if (!isOn() && _onoff) {
-        _onoff->on();
-    }
-
-    // wait for power up
-    bool timeout = true;
-    for (uint8_t i = 0; i < 10; i++) {
-        if (isAlive()) {
-            timeout = false;
-            break;
-        }
-    }
-
-    if (timeout) {
-        debugPrintLn("Error: No Reply from Modem");
-        return false;
-    }
-
-    return isOn(); // this essentially means isOn() && isAlive()
-}
-
-// Turns the modem off and returns true if successful.
-bool Sodaq_N2X::off()
-{
-    // No matter if it is on or off, turn it off.
-    if (_onoff) {
-        _onoff->off();
-    }
-
-    return !isOn();
-}
 
 // Returns true if the modem is on.
 bool Sodaq_N2X::isOn() const
