@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018, SODAQ
+Copyright (c) 2019, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -32,24 +32,20 @@ POSSIBILITY OF SUCH DAMAGE.
 #pragma once
 
 #include "DataReceiveCallback.h"
-#include "Sodaq_wdt.h"
-#include "Sodaq_nbIOT.h"
-#include "HexUtils.h"
 #include "Enums.h"
-#include "Config.h"
 
-class NbiotNetwork {
+class R4xNetwork {
 public:
     /**
     Initializes the lora module according to the given operation (join or skip).
     Returns true if the operation was successful.
     */
-    bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, bool useR4xx, bool use2G);
+    bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, const char* urat);
 
     /**
     * Turns the nbiot module on or off (and connects/disconnects)
     */
-    void setActive(bool on);
+    void setActive(bool on, bool needCheckConnection = true);
 
     uint8_t transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout);
 
@@ -63,7 +59,7 @@ public:
     void setConsoleStream(Stream& stream) { _consoleStream = &stream; }
     void setConsoleStream(Stream* stream) { _consoleStream = stream; }
 
-    uint32_t getBaudRate() { return _baudRate; }
+    uint32_t getBaudRate();
     bool getIMEI(char* buffer, size_t size);
     bool getModuleVersion(char* buffer, size_t size);
 private:
@@ -72,6 +68,6 @@ private:
     // The (optional) stream to show debug information.
     Stream* _diagStream;
     Stream* _consoleStream;
-    uint32_t _baudRate;
-    bool _useR4xx;
+
+    char _urat[16];
 };

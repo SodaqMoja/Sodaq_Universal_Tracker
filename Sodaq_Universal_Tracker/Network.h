@@ -37,9 +37,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "LoRaHelper.h"
 #include "LoraNetwork.h"
 #include "N2xNetwork.h"
-#include "NbiotNetwork.h"
+#include "R4xNetwork.h"
 #include "3GNetwork.h"
-#include "LteNetwork.h"
 
 class Network {
 public:

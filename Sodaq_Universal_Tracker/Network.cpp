@@ -43,10 +43,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 LoraNetwork loraNetwork;
-N2xNetwork n2xNetwork;
-NbiotNetwork nbiotNetwork;
-Network3G network3G;
-LteNetwork lteNetwork;
+N2xNetwork  n2xNetwork;
+R4xNetwork  r4xNetwork;
+Network3G   network3G;
 
 static bool isImeiInitialized;
 static char cachedImei[16];
@@ -68,19 +67,19 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
         return n2xNetwork.init(modemStream, callback, messages, join);
     }
     case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM:
     case NETWORK_TYPE_2G: {
         if (_diagStream) {
-            nbiotNetwork.setDiag(_diagStream);
+            r4xNetwork.setDiag(_diagStream);
         }
 
         if (_consoleStream) {
-            nbiotNetwork.setConsoleStream(_consoleStream);
+            r4xNetwork.setConsoleStream(_consoleStream);
         }
 
-        bool shouldUse2G = (_networkType == NETWORK_TYPE_2G);
-        bool shouldUseR4 = shouldUse2G || (_networkType == NETWORK_TYPE_NBIOT_R4);
+        const char* urat = (_networkType == NETWORK_TYPE_NBIOT_R4 ? "8" : (_networkType == NETWORK_TYPE_LTEM ? "7" : "9"));
 
-        return nbiotNetwork.init(modemStream, callback, messages, join, shouldUseR4, shouldUse2G);
+        return r4xNetwork.init(modemStream, callback, messages, join, urat);
     }
     case NETWORK_TYPE_LORA: {
         if (_diagStream) {
@@ -104,17 +103,6 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
 
         return network3G.init(modemStream, callback, messages, join);
     }
-    case NETWORK_TYPE_LTEM: {
-        if (_diagStream) {
-            lteNetwork.setDiag(_diagStream);
-        }
-
-        if (_consoleStream) {
-            lteNetwork.setConsoleStream(_consoleStream);
-        }
-
-        return lteNetwork.init(modemStream, callback, messages, join);
-    }
     default: {
         debugPrintLn("Unsupported network type");
         return false;
@@ -129,17 +117,15 @@ uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
         return n2xNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM:
     case NETWORK_TYPE_2G: {
-        return nbiotNetwork.transmit(buffer, size, rxTimeout);
+        return r4xNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_LORA: {
         return LoRa.transmit(buffer, size);
     }
     case NETWORK_TYPE_2G_3G: {
         return network3G.transmit(buffer, size, rxTimeout);
-    }
-    case NETWORK_TYPE_LTEM: {
-        return lteNetwork.transmit(buffer, size, rxTimeout);
     }
     default: {
         debugPrintLn("Unsupported network type");
@@ -156,8 +142,9 @@ void Network::loopHandler()
         break;
     }
     case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM:
     case NETWORK_TYPE_2G: {
-        nbiotNetwork.loopHandler();
+        r4xNetwork.loopHandler();
         break;
     }
     case NETWORK_TYPE_LORA: {
@@ -166,10 +153,6 @@ void Network::loopHandler()
     }
     case NETWORK_TYPE_2G_3G: {
         network3G.loopHandler();
-        break;
-    }
-    case NETWORK_TYPE_LTEM: {
-        lteNetwork.loopHandler();
         break;
     }
     default: {
@@ -187,8 +170,9 @@ void Network::sleep()
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM:
         case NETWORK_TYPE_2G: {
-            nbiotNetwork.sleep();
+            r4xNetwork.sleep();
             break;
         }
         case NETWORK_TYPE_LORA: {
@@ -197,10 +181,6 @@ void Network::sleep()
         }
         case NETWORK_TYPE_2G_3G: {
             network3G.sleep();
-            break;
-        }
-        case NETWORK_TYPE_LTEM: {
-            lteNetwork.sleep();
             break;
         }
         default: {
@@ -218,8 +198,9 @@ void Network::setActive(bool on)
         break;
     }
     case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM:
     case NETWORK_TYPE_2G: {
-        nbiotNetwork.setActive(on);
+        r4xNetwork.setActive(on);
         break;
     }
     case NETWORK_TYPE_LORA: {
@@ -228,10 +209,6 @@ void Network::setActive(bool on)
     }
     case NETWORK_TYPE_2G_3G: {
         network3G.setActive(on);
-        break;
-    }
-    case NETWORK_TYPE_LTEM: {
-        lteNetwork.setActive(on);
         break;
     }
     default: {
@@ -248,17 +225,15 @@ uint32_t Network::getBaudRate()
             return n2xNetwork.getBaudRate();
         }
         case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM:
         case NETWORK_TYPE_2G: {
-            return nbiotNetwork.getBaudRate();
+            return r4xNetwork.getBaudRate();
         }
         case NETWORK_TYPE_LORA: {
             return loraNetwork.getBaudRate();
         }
         case NETWORK_TYPE_2G_3G: {
             return network3G.getBaudRate();
-        }
-        case NETWORK_TYPE_LTEM: {
-            return lteNetwork.getBaudRate();
         }
         default: {
             debugPrintLn("Unsupported network type");
@@ -292,8 +267,9 @@ const char* Network::getIMEI()
                 break;
             }
             case NETWORK_TYPE_NBIOT_R4:
+            case NETWORK_TYPE_LTEM:
             case NETWORK_TYPE_2G: {
-                success = nbiotNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
+                success = r4xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
             case NETWORK_TYPE_LORA: {
@@ -301,10 +277,6 @@ const char* Network::getIMEI()
             }
             case NETWORK_TYPE_2G_3G: {
                 success = network3G.getIMEI(tmpBuffer, sizeof(tmpBuffer));
-                break;
-            }
-            case NETWORK_TYPE_LTEM: {
-                success = lteNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
             default: {
@@ -338,8 +310,9 @@ const char* Network::getModuleVersion()
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM:
         case NETWORK_TYPE_2G: {
-            success = nbiotNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
+            success = r4xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }
         case NETWORK_TYPE_LORA: {
@@ -347,10 +320,6 @@ const char* Network::getModuleVersion()
         }
         case NETWORK_TYPE_2G_3G: {
             // TODO success = network3G.getVersion(tmpBuffer, sizeof(tmpBuffer));
-            break;
-        }
-        case NETWORK_TYPE_LTEM: {
-            success = lteNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }
         default: {

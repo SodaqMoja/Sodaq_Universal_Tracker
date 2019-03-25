@@ -29,10 +29,10 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "Sodaq_N2X.h"
+#include "Sodaq_R4X.h"
 #include "Sodaq_wdt.h"
 #include "Config.h"
-#include "N2xNetwork.h"
+#include "R4xNetwork.h"
 
 #define DEBUG
 
@@ -51,90 +51,92 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 // BEGIN NBiot DEFINES
-static Sodaq_N2X n2x;
-static Sodaq_SARA_N211_OnOff saraN211OnOff;
+static Sodaq_R4X r4x;
+static Sodaq_SARA_R4XX_OnOff saraR4xxOnOff;
 // END NBiot DEFINES
 
 /**
 Initializes the NB-IoT module according to the given operation (join or skip).
 Returns true if the operation was successful.
 */
-bool N2xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join)
+bool R4xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, const char* urat)
 {
     _callback = callback;
 
+    strncpy(_urat, urat, sizeof(_urat) - 1);
+
     if (messages == INIT_SHOW_CONSOLE_MESSAGES) {
-        consolePrintln("Initializing N2X...");
+        consolePrintln("Initializing R4X...");
     }
 
     if (_diagStream != _consoleStream || messages != INIT_SHOW_CONSOLE_MESSAGES) {
-        debugPrintLn("Initializing N2X...");
+        debugPrintLn("Initializing R4X...");
     }
 
     if (params.getIsDebugOn() && _diagStream) {
-        n2x.setDiag(_diagStream);
+        r4x.setDiag(_diagStream);
     }
 
-    modemStream.begin(n2x.getDefaultBaudrate());
-    n2x.init(&saraN211OnOff, modemStream, params.getCID());
+    modemStream.begin(r4x.getDefaultBaudrate());
+    r4x.init(&saraR4xxOnOff, modemStream, params.getCID());
 
     if (join == INIT_JOIN) {
         setActive(true, false);
     }
     else {
-        n2x.on();
-        n2x.purgeAllResponsesRead();
+        r4x.on();
+        r4x.purgeAllResponsesRead();
     }
 
-    return n2x.isAlive();
+    return r4x.isAlive();
 }
 
 /**
 * Turns the nbiot module on or off (and connects/disconnects)
 */
-void N2xNetwork::setActive(bool on, bool needCheckConnection)
+void R4xNetwork::setActive(bool on, bool needCheckConnection)
 {
     sodaq_wdt_reset();
 
-    if (!on || (needCheckConnection && n2x.isConnected())) {
+    if (!on || (needCheckConnection && r4x.isConnected())) {
         return;
     }
 
-    if (!n2x.connect(params._apn, NULL, params._forceOperator, params._band)) {
-        n2x.off();
+    if (!r4x.connect(params._apn, _urat)) {
+        r4x.off();
         sodaq_wdt_safe_delay(450);
-        n2x.on();
+        r4x.on();
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        n2x.connect(params._apn, NULL, params._forceOperator, params._band);
+        r4x.connect(params._apn, _urat);
     }
 }
 
-uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
+uint8_t R4xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 {
     setActive(true);
 
     debugPrintLn("\n\rSending message through UDP");
 
-    int socketID = n2x.createSocket(16666);
+    int socketID = r4x.createSocket(16666);
 
     if (socketID < 0 || socketID >= 7) {
         debugPrintLn("Failed to create socket");
         return false;
     }
 
-    size_t lengthSent = n2x.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
+    size_t lengthSent = r4x.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
 
     // wait for data
-    if (n2x.waitForUDPResponse(socketID, rxTimeout)) {
+    if (r4x.waitForUDPResponse(socketID, rxTimeout)) {
         debugPrintLn("Received UDP response...");
 
         uint32_t startTime = millis();
 
-        while (n2x.hasPendingUDPBytes(socketID) && (millis() - startTime) < 20000) {
+        while (r4x.hasPendingUDPBytes(socketID) && (millis() - startTime) < 20000) {
             uint8_t data[128];
-            int size = n2x.socketReceiveBytes(socketID, data, sizeof(data));
+            int size = r4x.socketReceiveBytes(socketID, data, sizeof(data));
             if (size) {
                 _callback(data, size);
                 startTime = millis();
@@ -148,7 +150,7 @@ uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
         debugPrintLn("Timed-out waiting for UDP Response!");
     }
 
-    n2x.closeSocket(socketID);
+    r4x.closeSocket(socketID);
     debugPrintLn();
 
     setActive(false);
@@ -156,21 +158,21 @@ uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
     return lengthSent;
 }
 
-void N2xNetwork::loopHandler() {}
+void R4xNetwork::loopHandler() {}
 
-void N2xNetwork::sleep() {}
+void R4xNetwork::sleep() {}
 
-uint32_t N2xNetwork::getBaudRate()
+uint32_t R4xNetwork::getBaudRate()
 {
-    return n2x.getDefaultBaudrate();
+    return r4x.getDefaultBaudrate();
 }
 
-bool N2xNetwork::getIMEI(char* buffer, size_t size)
+bool R4xNetwork::getIMEI(char* buffer, size_t size)
 {
-    return n2x.getIMEI(buffer, size);
+    return r4x.getIMEI(buffer, size);
 }
 
-bool N2xNetwork::getModuleVersion(char* buffer, size_t size)
+bool R4xNetwork::getModuleVersion(char* buffer, size_t size)
 {
-    return n2x.getFirmwareVersion(buffer, size);
+    return r4x.getFirmwareVersion(buffer, size);
 }
