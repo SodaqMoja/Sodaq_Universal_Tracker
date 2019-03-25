@@ -38,6 +38,7 @@ typedef void(*VoidCallbackMethodPtr)(void);
 
 void showBootMenu(Stream& stream);
 void setResetDevAddrOrEUItoHWEUICallback(VoidCallbackMethodPtr callback);
+void setResetLoraCallback(VoidCallbackMethodPtr callback);
 void setShowImeiCallback(VoidCallbackMethodPtr callback);
 void setShowModuleVersionCallback(VoidCallbackMethodPtr callback);
 

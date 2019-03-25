@@ -37,6 +37,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #define BOOT_MENU_TIMEOUT  (30 * 1000)
 
 static VoidCallbackMethodPtr resetDevAddrOrEUItoHWEUICallback;
+static VoidCallbackMethodPtr resetLoraCallback;
 static VoidCallbackMethodPtr showImeiCallback;
 static VoidCallbackMethodPtr showModuleVersionCallback;
 
@@ -58,9 +59,21 @@ static void resetDevAddrOrEUItoHWEUI(const Command* a, const char* line)
     }
 }
 
+static void resetLora(const Command* a, const char* line)
+{
+    if (resetLoraCallback) {
+        resetLoraCallback();
+    }
+}
+
 void setResetDevAddrOrEUItoHWEUICallback(VoidCallbackMethodPtr callback)
 {
     resetDevAddrOrEUItoHWEUICallback = callback;
+}
+
+void setResetLoraCallback(VoidCallbackMethodPtr callback)
+{
+    resetLoraCallback = callback;
 }
 
 static void showImei(const Command* a, const char* line)
@@ -90,6 +103,7 @@ void setShowImeiCallback(VoidCallbackMethodPtr callback)
 static const Command args[] = {
 #if defined(ARDUINO_SODAQ_ONE)
     { "Reset DevAddr / DevEUI to the Hardware EUI", "EUI", resetDevAddrOrEUItoHWEUI, Command::show_string },
+    { "Reset LoRa                                ", "RESET", resetLora, Command::show_string },
 #elif defined(ARDUINO_SODAQ_SARA) || defined(ARDUINO_SODAQ_SFF)
     { "Show IMEI                                 ", "SI", showImei, Command::show_string },
     { "Show Module version                       ", "SV", showModuleVersion, Command::show_string },
