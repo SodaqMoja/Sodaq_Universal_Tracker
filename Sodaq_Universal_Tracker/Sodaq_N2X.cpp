@@ -47,11 +47,11 @@
 
 #ifdef DEBUG
 #define debugPrint(...)   { if (_diagStream) _diagStream->print(__VA_ARGS__); }
-#define debugPrintLn(...) { if (_diagStream) _diagStream->println(__VA_ARGS__); }
+#define debugPrintln(...) { if (_diagStream) _diagStream->println(__VA_ARGS__); }
 #warning "Debug mode is ON"
 #else
 #define debugPrint(...)
-#define debugPrintLn(...)
+#define debugPrintln(...)
 #endif
 
 #define CR '\r'
@@ -97,13 +97,13 @@ Sodaq_N2X::Sodaq_N2X() :
     _minRSSI             = -113;  // dBm
     _onoff               = 0;
 
-    memset(_pendingUDPBytes, 0, sizeof(_pendingUDPBytes));
+    memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
 }
 
 // Initializes the modem instance. Sets the modem stream and the on-off power pins.
 void Sodaq_N2X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
 {
-    debugPrintLn("[init] started.");
+    debugPrintln("[init] started.");
 
     initBuffer(); // safe to call multiple times
 
@@ -132,7 +132,7 @@ bool Sodaq_N2X::on()
     }
 
     if (timeout) {
-        debugPrintLn("Error: No Reply from Modem");
+        debugPrintln("Error: No Reply from Modem");
         return false;
     }
 
@@ -356,7 +356,7 @@ bool Sodaq_N2X::setBand(uint8_t band)
 bool Sodaq_N2X::setCdp(const char* cdp)
 {
     if (cdp == NULL || cdp[0] == 0) {
-        debugPrintLn("Skipping empty CDP");
+        debugPrintln("Skipping empty CDP");
         return true;
     }
 
@@ -385,7 +385,7 @@ bool Sodaq_N2X::setIndicationsActive(bool on)
 bool Sodaq_N2X::setOperator(const char* opr)
 {
     if (opr == NULL || opr[0] == 0) {
-        debugPrintLn("Skipping empty operator");
+        debugPrintln("Skipping empty operator");
         return true;
     }
 
@@ -472,7 +472,22 @@ bool Sodaq_N2X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 * Sockets
 *****************************************************************************/
 
-int Sodaq_N2X::createSocket(uint16_t localPort)
+bool Sodaq_N2X::socketClose(uint8_t socketID)
+{
+    // only Datagram/UDP is supported
+    print("AT+NSOCL=");
+    println(socketID);
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    _socketPendingBytes[socketID] = 0;
+
+    return true;
+}
+
+int Sodaq_N2X::socketCreate(uint16_t localPort)
 {
     // only Datagram/UDP is supported
     print("AT+NSOCR=\"DGRAM\",17,");
@@ -491,75 +506,67 @@ int Sodaq_N2X::createSocket(uint16_t localPort)
         return SOCKET_FAIL;
     }
 
-    _pendingUDPBytes[socketID] = 0;
+    _socketPendingBytes[socketID] = 0;
 
     return socketID;
 }
 
-bool Sodaq_N2X::closeSocket(uint8_t socketID)
+size_t Sodaq_N2X::socketGetPendingBytes(uint8_t socketID)
 {
-    // only Datagram/UDP is supported
-    print("AT+NSOCL=");
-    println(socketID);
+    return _socketPendingBytes[socketID];
+}
 
-    if (readResponse() != GSMResponseOK) {
-        return false;
+bool Sodaq_N2X::socketHasPendingBytes(uint8_t socketID)
+{
+    return _socketPendingBytes[socketID] > 0;
+}
+
+size_t Sodaq_N2X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
+{
+    if (!socketHasPendingBytes(socketID)) {
+        // no URC has happened, no socket to read
+        debugPrintln("Reading from without available bytes!");
+        return 0;
     }
 
-    _pendingUDPBytes[socketID] = 0;
+    size = min(size, min(SODAQ_N2X_MAX_UDP_BUFFER, _socketPendingBytes[socketID]));
 
-    return true;
-}
+    char   outBuffer[SODAQ_N2X_MAX_UDP_BUFFER];
+    int    retSocketID;
+    size_t retSize;
 
-size_t Sodaq_N2X::getPendingUDPBytes(uint8_t socketID)
-{
-    return _pendingUDPBytes[socketID];
-}
+    print("AT+NSORF=");
+    print(socketID);
+    print(',');
+    println(size);
 
-bool Sodaq_N2X::hasPendingUDPBytes(uint8_t socketID)
-{
-    return _pendingUDPBytes[socketID] > 0;
-}
+    if (readResponse(outBuffer, sizeof(outBuffer)) != GSMResponseOK) {
+        return 0;
+    }
 
-size_t Sodaq_N2X::socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p)
-{
-    size_t size = min(length, min(SODAQ_N2X_MAX_UDP_BUFFER, _pendingUDPBytes[socketID]));
+    if (sscanf(outBuffer, "%d,\"%*[^\"]\",%*d,%d,\"%[^\"]\",%*d", &retSocketID, &retSize, outBuffer) != 3) {
+        return 0;
+    }
 
-    SaraN2UDPPacketMetadata packet;
+    if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
+        return 0;
+    }
 
-    char tempBuffer[SODAQ_N2X_MAX_UDP_BUFFER];
+    _socketPendingBytes[socketID] -= retSize;
 
-    size_t receivedSize = socketReceive(socketID, p ? p : &packet, tempBuffer, size);
-
-    if (buffer && length > 0) {
-        for (size_t i = 0; i < receivedSize * 2; i += 2) {
-            buffer[i / 2] = HEX_PAIR_TO_BYTE(tempBuffer[i], tempBuffer[i + 1]);
+    if (buffer != NULL && size > 0) {
+        for (size_t i = 0; i < retSize * 2; i += 2) {
+            buffer[i / 2] = HEX_PAIR_TO_BYTE(outBuffer[i], outBuffer[i + 1]);
         }
     }
 
-    return receivedSize;
-}
-
-size_t Sodaq_N2X::socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p)
-{
-    SaraN2UDPPacketMetadata packet;
-
-    size_t receiveSize = length / 2;
-
-    receiveSize = min(receiveSize, _pendingUDPBytes[socketID]);
-
-    return socketReceive(socketID, p ? p : &packet, buffer, receiveSize);
-}
-
-size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str)
-{
-    return socketSend(socketID, remoteIP, remotePort, (uint8_t *)str, strlen(str));
+    return retSize;
 }
 
 size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size)
 {
     if (size > SODAQ_MAX_UDP_SEND_MESSAGE_SIZE) {
-        debugPrintLn("Message exceeded maximum size!");
+        debugPrintln("Message exceeded maximum size!");
         return 0;
     }
 
@@ -597,20 +604,20 @@ size_t Sodaq_N2X::socketSend(uint8_t socketID, const char* remoteIP, const uint1
     return sentLength;
 }
 
-bool Sodaq_N2X::waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS)
+bool Sodaq_N2X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 {
-    if (hasPendingUDPBytes(socketID)) {
+    if (socketHasPendingBytes(socketID)) {
         return true;
     }
 
     uint32_t startTime = millis();
 
-    while (!hasPendingUDPBytes(socketID) && (millis() - startTime) < timeoutMS) {
+    while (!socketHasPendingBytes(socketID) && (millis() - startTime) < timeout) {
         isAlive();
         sodaq_wdt_safe_delay(10);
     }
 
-    return hasPendingUDPBytes(socketID);
+    return socketHasPendingBytes(socketID);
 }
 
 
@@ -750,10 +757,10 @@ bool Sodaq_N2X::checkAndApplyNconfig()
                 const char* v = nConfig[i].Value ? "TRUE" : "FALSE";
 
                 if (strcmp(value, v) == 0) {
-                    debugPrintLn("... OK");
+                    debugPrintln("... OK");
                 }
                 else {
-                    debugPrintLn("... CHANGE");
+                    debugPrintln("... CHANGE");
                     setNconfigParam(nConfig[i].Name, v);
                 }
 
@@ -783,7 +790,7 @@ bool Sodaq_N2X::checkURC(char* buffer)
         debugPrint("Unsolicited: FOTA: ");
         debugPrint(param1);
         debugPrint(", ");
-        debugPrintLn(param2);
+        debugPrintln(param2);
         #endif
 
         return true;
@@ -793,9 +800,11 @@ bool Sodaq_N2X::checkURC(char* buffer)
         debugPrint("Unsolicited: Socket ");
         debugPrint(param1);
         debugPrint(": ");
-        debugPrintLn(param2);
+        debugPrintln(param2);
 
-        _pendingUDPBytes[param1] = param2;
+        if (param1 >= 0 && param1 < SOCKET_COUNT) {
+            _socketPendingBytes[param1] = param2;
+        }
 
         return true;
     }
@@ -833,7 +842,7 @@ GSMResponseTypes Sodaq_N2X::readResponse(char* outBuffer, size_t outMaxSize, con
         }
 
         debugPrint("<< ");
-        debugPrintLn(_inputBuffer);
+        debugPrintln(_inputBuffer);
 
         if (startsWith(STR_AT, _inputBuffer)) {
             continue; // skip echoed back command
@@ -877,7 +886,7 @@ GSMResponseTypes Sodaq_N2X::readResponse(char* outBuffer, size_t outMaxSize, con
         }
     }
 
-    debugPrintLn("<< timed out");
+    debugPrintln("<< timed out");
 
     return GSMResponseTimeout;
 }
@@ -901,41 +910,6 @@ bool Sodaq_N2X::setNconfigParam(const char* param, const char* value)
     println('"');
 
     return (readResponse() == GSMResponseOK);
-}
-
-size_t Sodaq_N2X::socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size)
-{
-    if (!hasPendingUDPBytes(socketID)) {
-        // no URC has happened, no socket to read
-        debugPrintLn("Reading from without available bytes!");
-        return 0;
-    }
-
-    print("AT+NSORF=");
-    print(socketID);
-    print(',');
-    println(min(size, _pendingUDPBytes[socketID]));
-
-    char outBuffer[1024];
-
-    if (readResponse(outBuffer, sizeof(outBuffer)) != GSMResponseOK) {
-        return 0;
-    }
-
-    int retSocketID;
-
-    if (sscanf(outBuffer, "%d,\"%[^\"]\",%d,%d,\"%[^\"]\",%d", &retSocketID, packet->ip, &packet->port,
-               &packet->length, buffer, &packet->remainingLength) != 6) {
-        return 0;
-    }
-
-    if ((retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
-        return 0;
-    }
-
-    _pendingUDPBytes[socketID] -= packet->length;
-
-    return packet->length;
 }
 
 bool Sodaq_N2X::waitForSignalQuality(uint32_t timeout)
@@ -1148,7 +1122,7 @@ size_t Sodaq_N2X::println(const Printable& x)
 
 size_t Sodaq_N2X::println()
 {
-    debugPrintLn();
+    debugPrintln();
     size_t i = print(CR);
     _appendCommand = false;
     return i;
@@ -1158,7 +1132,7 @@ size_t Sodaq_N2X::println()
 // Safe to call multiple times.
 void Sodaq_N2X::initBuffer()
 {
-    debugPrintLn("[initBuffer]");
+    debugPrintln("[initBuffer]");
 
     // make sure the buffers are only initialized once
     if (!_isBufferInitialized) {

@@ -119,7 +119,7 @@ uint8_t R4xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 
     debugPrintLn("\n\rSending message through UDP");
 
-    int socketID = r4x.createSocket(16666);
+    int socketID = r4x.socketCreate(16666);
 
     if (socketID < 0 || socketID >= 7) {
         debugPrintLn("Failed to create socket");
@@ -129,14 +129,14 @@ uint8_t R4xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
     size_t lengthSent = r4x.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
 
     // wait for data
-    if (r4x.waitForUDPResponse(socketID, rxTimeout)) {
+    if (r4x.socketWaitForReceive(socketID, rxTimeout)) {
         debugPrintLn("Received UDP response...");
 
         uint32_t startTime = millis();
 
-        while (r4x.hasPendingUDPBytes(socketID) && (millis() - startTime) < 20000) {
+        while (r4x.socketHasPendingBytes(socketID) && (millis() - startTime) < 20000) {
             uint8_t data[128];
-            int size = r4x.socketReceiveBytes(socketID, data, sizeof(data));
+            int size = r4x.socketReceive(socketID, data, sizeof(data));
             if (size) {
                 _callback(data, size);
                 startTime = millis();
@@ -150,7 +150,7 @@ uint8_t R4xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
         debugPrintLn("Timed-out waiting for UDP Response!");
     }
 
-    r4x.closeSocket(socketID);
+    r4x.socketClose(socketID);
     debugPrintLn();
 
     setActive(false);

@@ -117,7 +117,7 @@ uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 
     debugPrintLn("\n\rSending message through UDP");
 
-    int socketID = n2x.createSocket(16666);
+    int socketID = n2x.socketCreate(16666);
 
     if (socketID < 0 || socketID >= 7) {
         debugPrintLn("Failed to create socket");
@@ -127,14 +127,14 @@ uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
     size_t lengthSent = n2x.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
 
     // wait for data
-    if (n2x.waitForUDPResponse(socketID, rxTimeout)) {
+    if (n2x.socketWaitForReceive(socketID, rxTimeout)) {
         debugPrintLn("Received UDP response...");
 
         uint32_t startTime = millis();
 
-        while (n2x.hasPendingUDPBytes(socketID) && (millis() - startTime) < 20000) {
+        while (n2x.socketHasPendingBytes(socketID) && (millis() - startTime) < 20000) {
             uint8_t data[128];
-            int size = n2x.socketReceiveBytes(socketID, data, sizeof(data));
+            int size = n2x.socketReceive(socketID, data, sizeof(data));
             if (size) {
                 _callback(data, size);
                 startTime = millis();
@@ -148,7 +148,7 @@ uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
         debugPrintLn("Timed-out waiting for UDP Response!");
     }
 
-    n2x.closeSocket(socketID);
+    n2x.socketClose(socketID);
     debugPrintLn();
 
     setActive(false);

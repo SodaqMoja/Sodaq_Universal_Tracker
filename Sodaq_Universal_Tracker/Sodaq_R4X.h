@@ -22,20 +22,12 @@
 #define _Sodaq_R4X_h
 
 #define DEFAULT_READ_MS                 5000
-#define SODAQ_MAX_UDP_SEND_MESSAGE_SIZE 512
+#define SODAQ_MAX_SEND_MESSAGE_SIZE     512
 #define SODAQ_R4X_DEFAULT_CID           1
-#define SODAQ_R4X_DEFAULT_UDP_TIMOUT_MS 15000
-#define SODAQ_R4X_MAX_UDP_BUFFER        256
+#define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
+#define SODAQ_R4X_MAX_SOCKET_BUFFER     1024
 
 #include "Arduino.h"
-
-struct SaraN2UDPPacketMetadata {
-    uint8_t socketID;
-    char ip[16]; // max IP size 4*3 digits + 3 dots + zero term = 16
-    int port;
-    int length;
-    int remainingLength;
-};
 
 enum GSMResponseTypes {
     GSMResponseNotFound = 0,
@@ -55,11 +47,16 @@ enum HttpRequestTypes {
     HttpRequestTypesMAX
 };
 
+enum Protocols {
+    TCP = 0,
+    UDP
+};
+
 enum SimStatuses {
     SimStatusUnknown = 0,
     SimMissing,
     SimNeedsPin,
-    SimReady,
+    SimReady
 };
 
 enum TriBoolStates
@@ -185,20 +182,29 @@ public:
     * Sockets
     *****************************************************************************/
 
-    int    createSocket(uint16_t localPort = 0);
-    bool   closeSocket(uint8_t socketID);
-    size_t getPendingUDPBytes(uint8_t socketID);
-    bool   hasPendingUDPBytes(uint8_t socketID);
-    size_t socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
-    size_t socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
-    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str);
-    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size);
-    bool   waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS = SODAQ_R4X_DEFAULT_UDP_TIMOUT_MS);
+    bool   socketClose(uint8_t socketID, bool async = false);
+    bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
+    int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
+    size_t socketGetPendingBytes(uint8_t socketID);
+    bool   socketHasPendingBytes(uint8_t socketID);
+    bool   socketIsClosed(uint8_t socketID);
+    size_t socketRead(uint8_t socketID, uint8_t* buffer, size_t length);
+    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
+    size_t socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size);
+    bool   socketSetR4KeepAlive(uint8_t socketID);
+    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2 = 0);
+    bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
+    bool   socketWaitForRead(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+    bool   socketWaitForReceive(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+    size_t socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size);
 
 
     /******************************************************************************
     * MQTT
     *****************************************************************************/
+
+    int8_t  mqttGetLoginResult();
+    int16_t mqttGetPendingMessages();
 
     bool mqttLogin(uint32_t timeout = 3 * 60 * 1000);
     bool mqttLogout();
@@ -206,11 +212,6 @@ public:
     bool mqttPing(const char* server);
     bool mqttPublish(const char* topic, const uint8_t* msg, size_t size, uint8_t qos = 0, uint8_t retain = 0, bool useHEX = false);
     uint16_t mqttReadMessages(char* buffer, size_t size, uint32_t timeout = 60 * 1000);
-    bool mqttSubscribe(const char* filter, uint8_t qos = 0, uint32_t timeout = 30 * 1000);
-    bool mqttUnsubscribe(const char* filter);
-
-    int8_t  mqttGetLoginResult();
-    int16_t mqttGetPendingMessages();
 
     bool mqttSetAuth(const char* name, const char* pw);
     bool mqttSetCleanSettion(bool enabled);
@@ -220,6 +221,9 @@ public:
     bool mqttSetSecureOption(bool enabled, int8_t profile = -1);
     bool mqttSetServer(const char* server, uint16_t port);
     bool mqttSetServerIP(const char* ip, uint16_t port);
+
+    bool mqttSubscribe(const char* filter, uint8_t qos = 0, uint32_t timeout = 30 * 1000);
+    bool mqttUnsubscribe(const char* filter);
 
 
     /******************************************************************************
@@ -238,6 +242,13 @@ public:
     // Return a partial result of the previous HTTP Request (GET or POST)
     // Offset 0 is the byte directly after the HTTP Response header
     size_t httpGetPartial(uint8_t* buffer, size_t size, uint32_t offset);
+
+    // Creates an HTTP POST request and optionally returns the received data.
+    // Note. Endpoint should include the initial "/".
+    // The UBlox device stores the received data in http_last_response_<profile_id>
+    uint32_t httpPost(const char* server, uint16_t port, const char* endpoint,
+                      char* responseBuffer, size_t responseSize,
+                      const char* sendBuffer, size_t sendSize, uint32_t timeout = 60000, bool useURC = true);
 
     // Creates an HTTP request using the (optional) given buffer and
     // (optionally) returns the received data.
@@ -271,8 +282,9 @@ private:
     int8_t    _mqttLoginResult;
     int16_t   _mqttPendingMessages;
     int8_t    _mqttSubscribeReason;
-    size_t    _pendingUDPBytes[SOCKET_COUNT];
     char*     _pin;
+    bool      _socketClosedBit[SOCKET_COUNT];
+    size_t    _socketPendingBytes[SOCKET_COUNT];
 
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
     bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
@@ -288,7 +300,6 @@ private:
 
     void   reboot();
     bool   setSimPin(const char* simPin);
-    size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
     bool   waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
 
 

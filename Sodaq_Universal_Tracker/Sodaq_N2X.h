@@ -23,9 +23,9 @@
 
 #define DEFAULT_READ_MS                 5000
 #define SODAQ_MAX_UDP_SEND_MESSAGE_SIZE 512
+#define SODAQ_N2X_DEFAULT_CID           1
 #define SODAQ_N2X_DEFAULT_UDP_TIMOUT_MS 15000
 #define SODAQ_N2X_MAX_UDP_BUFFER        256
-#define SODAQ_N2X_DEFAULT_CID           0
 
 #include "Arduino.h"
 
@@ -173,15 +173,13 @@ public:
     * Sockets
     *****************************************************************************/
 
-    int    createSocket(uint16_t localPort = 0);
-    bool   closeSocket(uint8_t socketID);
-    size_t getPendingUDPBytes(uint8_t socketID);
-    bool   hasPendingUDPBytes(uint8_t socketID);
-    size_t socketReceiveBytes(uint8_t socketID, uint8_t* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
-    size_t socketReceiveHex(uint8_t socketID, char* buffer, size_t length, SaraN2UDPPacketMetadata* p = NULL);
-    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const char* str);
-    size_t socketSend(uint8_t socketID, const char* remoteIP, const uint16_t remotePort, const uint8_t* buffer, size_t size);
-    bool   waitForUDPResponse(uint8_t socketID, uint32_t timeoutMS = SODAQ_N2X_DEFAULT_UDP_TIMOUT_MS);
+    bool   socketClose(uint8_t socketID);
+    int    socketCreate(uint16_t localPort = 0);
+    size_t socketGetPendingBytes(uint8_t socketID);
+    bool   socketHasPendingBytes(uint8_t socketID);
+    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
+    size_t socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size);
+    bool   socketWaitForReceive(uint8_t socketID, uint32_t timeout = SODAQ_N2X_DEFAULT_UDP_TIMOUT_MS);
 
 
     /******************************************************************************
@@ -201,7 +199,7 @@ private:
     *****************************************************************************/
 
     uint8_t _cid;
-    size_t  _pendingUDPBytes[SOCKET_COUNT];
+    size_t  _socketPendingBytes[SOCKET_COUNT];
 
     bool   checkAndApplyNconfig();
     bool   checkURC(char* buffer);
@@ -211,7 +209,6 @@ private:
 
     void   reboot();
     bool   setNconfigParam(const char* param, const char* value);
-    size_t socketReceive(uint8_t socketID, SaraN2UDPPacketMetadata* packet, char* buffer, size_t size);
     bool   waitForSignalQuality(uint32_t timeout = 5L * 60L * 1000);
 
 
