@@ -29,14 +29,6 @@
 
 #include "Arduino.h"
 
-struct SaraN2UDPPacketMetadata {
-    uint8_t socketID;
-    char ip[16]; // max IP size 4*3 digits + 3 dots + zero term = 16
-    int port;
-    int length;
-    int remainingLength;
-};
-
 enum GSMResponseTypes {
     GSMResponseNotFound = 0,
     GSMResponseOK = 1,
@@ -44,6 +36,11 @@ enum GSMResponseTypes {
     GSMResponsePrompt = 3,
     GSMResponseTimeout = 4,
     GSMResponseEmpty = 5
+};
+
+enum Protocols {
+    TCP = 0,
+    UDP
 };
 
 enum SentMessageStatus {
@@ -173,13 +170,16 @@ public:
     * Sockets
     *****************************************************************************/
 
-    bool   socketClose(uint8_t socketID);
-    int    socketCreate(uint16_t localPort = 0);
-    size_t socketGetPendingBytes(uint8_t socketID);
-    bool   socketHasPendingBytes(uint8_t socketID);
-    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
+    int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
+
     size_t socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size);
     bool   socketWaitForReceive(uint8_t socketID, uint32_t timeout = SODAQ_N2X_DEFAULT_UDP_TIMOUT_MS);
+    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
+
+    bool   socketClose(uint8_t socketID, bool async = false);
+
+    size_t socketGetPendingBytes(uint8_t socketID);
+    bool   socketHasPendingBytes(uint8_t socketID);
 
 
     /******************************************************************************

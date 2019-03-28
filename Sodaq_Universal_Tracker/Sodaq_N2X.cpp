@@ -472,8 +472,12 @@ bool Sodaq_N2X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 * Sockets
 *****************************************************************************/
 
-bool Sodaq_N2X::socketClose(uint8_t socketID)
+bool Sodaq_N2X::socketClose(uint8_t socketID, bool async)
 {
+    // This parameter only applies to TCP sockets
+    // The N2 series only supports UDP
+    UNUSED(async);
+
     // only Datagram/UDP is supported
     print("AT+NSOCL=");
     println(socketID);
@@ -487,8 +491,11 @@ bool Sodaq_N2X::socketClose(uint8_t socketID)
     return true;
 }
 
-int Sodaq_N2X::socketCreate(uint16_t localPort)
+int Sodaq_N2X::socketCreate(uint16_t localPort, Protocols protocol)
 {
+    // The N2 series only supports UDP
+    UNUSED(protocol);
+
     // only Datagram/UDP is supported
     print("AT+NSOCR=\"DGRAM\",17,");
     print(localPort);

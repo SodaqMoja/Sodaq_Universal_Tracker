@@ -83,6 +83,14 @@
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) { return (millis() - from) > nr_ms; }
 
+static uint8_t httpRequestMapping[] = {
+    4, // 0 POST
+    1, // 1 GET
+    0, // 2 HEAD
+    2, // 3 DELETE
+    3, // 4 PUT
+};
+
 
 /******************************************************************************
 * Main
@@ -285,7 +293,6 @@ bool Sodaq_R4X::getEpoch(uint32_t* epoch)
 
     return false;
 }
-
 
 bool Sodaq_R4X::getFirmwareVersion(char* buffer, size_t size)
 {
@@ -1258,9 +1265,27 @@ uint32_t Sodaq_R4X::httpPost(const char* server, uint16_t port, const char* endp
                              char* responseBuffer, size_t responseSize,
                              const char* sendBuffer, size_t sendSize, uint32_t timeout, bool useURC)
 {
+    deleteFile(HTTP_SEND_TMP_FILENAME); // cleanup the file first (if exists)
+
+    if (!writeFile(HTTP_SEND_TMP_FILENAME, (uint8_t*)sendBuffer, sendSize)) {
+        debugPrintln(DEBUG_STR_ERROR "Could not create the http tmp file!");
+        return 0;
+    }
+
+    return httpPostFromFile(server, port, endpoint, responseBuffer, responseSize, HTTP_SEND_TMP_FILENAME, timeout, useURC);
+}
+
+// Creates an HTTP POST request and optionally returns the received data.
+// Note. Endpoint should include the initial "/".
+// The UBlox device stores the received data in http_last_response_<profile_id>
+// Request body must first be prepared in a file on the modem
+uint32_t Sodaq_R4X::httpPostFromFile(const char* server, uint16_t port, const char* endpoint,
+                                     char* responseBuffer, size_t responseSize,
+                                     const char* fileName, uint32_t timeout, bool useURC)
+{
     // First just handle the request and let the file be read into the UBlox file system
-    uint32_t file_size = httpRequest(server, port, endpoint, POST, responseBuffer, responseSize, sendBuffer, sendSize,
-                                     timeout, useURC);
+    uint32_t file_size = httpRequestFromFile(server, port, endpoint, POST, responseBuffer, responseSize, fileName,
+                                             timeout, useURC);
     if (file_size == 0) {
         return 0;
     }
@@ -1283,22 +1308,31 @@ uint32_t Sodaq_R4X::httpPost(const char* server, uint16_t port, const char* endp
     return readFilePartial(HTTP_RECEIVE_FILENAME, (uint8_t*)responseBuffer, responseSize, _httpGetHeaderSize);
 }
 
-
 // Creates an HTTP request using the (optional) given buffer and
 // (optionally) returns the received data.
 // endpoint should include the initial "/".
-size_t Sodaq_R4X::httpRequest(const char* server, uint16_t port,
-                              const char* endpoint, HttpRequestTypes requestType,
+size_t Sodaq_R4X::httpRequest(const char* server, uint16_t port, const char* endpoint, HttpRequestTypes requestType,
                               char* responseBuffer, size_t responseSize,
                               const char* sendBuffer, size_t sendSize, uint32_t timeout, bool useURC)
 {
-    static uint8_t mapping[] = {
-        4, // 0 POST
-        1, // 1 GET
-        0, // 2 HEAD
-        2, // 3 DELETE
-        3, // 4 PUT
-    };
+    // before starting the actual http request, create any files needed in the fs of the modem
+    // that way there is a chance to abort sending the http req command in case of an fs error
+    if (requestType == PUT || requestType == POST) {
+        if (!sendBuffer || sendSize == 0) {
+            debugPrintln(DEBUG_STR_ERROR "There is no sendBuffer or sendSize set!");
+            return 0;
+        }
+
+        deleteFile(HTTP_SEND_TMP_FILENAME); // cleanup the file first (if exists)
+
+        if (!writeFile(HTTP_SEND_TMP_FILENAME, (uint8_t*)sendBuffer, sendSize)) {
+            debugPrintln(DEBUG_STR_ERROR "Could not create the http tmp file!");
+            return 0;
+        }
+
+        return httpRequestFromFile(server, port, endpoint, requestType, responseBuffer, responseSize,
+                                   HTTP_SEND_TMP_FILENAME, timeout, useURC);
+    }
 
     // reset http profile 0
     println("AT+UHTTP=0");
@@ -1332,43 +1366,14 @@ size_t Sodaq_R4X::httpRequest(const char* server, uint16_t port,
         }
     }
 
-    // before starting the actual http request, create any files needed in the fs of the modem
-    // that way there is a chance to abort sending the http req command in case of an fs error
-    if (requestType == PUT || requestType == POST) {
-        if (!sendBuffer || sendSize == 0) {
-            debugPrintln(DEBUG_STR_ERROR "There is no sendBuffer or sendSize set!");
-            return 0;
-        }
-
-        deleteFile(HTTP_SEND_TMP_FILENAME); // cleanup the file first (if exists)
-
-        if (!writeFile(HTTP_SEND_TMP_FILENAME, (uint8_t*)sendBuffer, sendSize)) {
-            debugPrintln(DEBUG_STR_ERROR "Could not create the http tmp file!");
-            return 0;
-        }
-    }
-
     // reset the success bit before calling a new request
     _httpRequestSuccessBit[requestType] = TriBoolUndefined;
 
     print("AT+UHTTPC=0,");
-    print(requestType < sizeof(mapping) ? mapping[requestType] : 1);
+    print(requestType < sizeof(httpRequestMapping) ? httpRequestMapping[requestType] : 1);
     print(",\"");
     print(endpoint);
-    print("\",\"\""); // empty filename = default = "http_last_response_0" (DEFAULT_HTTP_RECEIVE_FILENAME)
-
-    // NOTE: a file that includes the buffer to send has been created already
-    if (requestType == PUT) {
-        println(",\"" HTTP_SEND_TMP_FILENAME "\""); // param1: file from filesystem to send
-    }
-    else if (requestType == POST) {
-        print(",\"" HTTP_SEND_TMP_FILENAME "\""); // param1: file from filesystem to send
-        println(",1"); // param2: content type, 1=text/plain
-        // TODO consider making the content type a parameter
-    }
-    else {
-        println();
-    }
+    println("\",\"\""); // empty filename = default = "http_last_response_0" (DEFAULT_HTTP_RECEIVE_FILENAME)
 
     if (readResponse() != GSMResponseOK) {
         return 0;
@@ -1425,6 +1430,144 @@ size_t Sodaq_R4X::httpRequest(const char* server, uint16_t port,
     }
 
     return 0;
+}
+
+// Creates an HTTP request using the (optional) given buffer and
+// (optionally) returns the received data.
+// endpoint should include the initial "/".
+// Request body must first be prepared in a file on the modem
+size_t Sodaq_R4X::httpRequestFromFile(const char* server, uint16_t port, const char* endpoint, HttpRequestTypes requestType,
+                                      char* responseBuffer, size_t responseSize,
+                                      const char* fileName, uint32_t timeout, bool useURC)
+{
+    if (requestType != PUT && requestType != POST) {
+        return 0;
+    }
+
+    // reset http profile 0
+    println("AT+UHTTP=0");
+    if (readResponse() != GSMResponseOK) {
+        return 0;
+    }
+
+    deleteFile(HTTP_RECEIVE_FILENAME); // cleanup the file first (if exists)
+
+    if (requestType >= HttpRequestTypesMAX) {
+        debugPrintln(DEBUG_STR_ERROR "Unknown request type!");
+        return 0;
+    }
+
+    // set server host name
+    print("AT+UHTTP=0,");
+    print(isValidIPv4(server) ? "0,\"" : "1,\"");
+    print(server);
+    println("\"");
+    if (readResponse() != GSMResponseOK) {
+        return 0;
+    }
+
+    // set port
+    if (port != 80) {
+        print("AT+UHTTP=0,5,");
+        println(port);
+
+        if (readResponse() != GSMResponseOK) {
+            return 0;
+        }
+    }
+
+    // reset the success bit before calling a new request
+    _httpRequestSuccessBit[requestType] = TriBoolUndefined;
+
+    print("AT+UHTTPC=0,");
+    print(requestType < sizeof(httpRequestMapping) ? httpRequestMapping[requestType] : 1);
+    print(",\"");
+    print(endpoint);
+    print("\",\"\",\"");
+    print(fileName);
+    println(requestType == POST ? "\",1" : "\"\n");
+
+    if (readResponse() != GSMResponseOK) {
+        return 0;
+    }
+
+    // check for success while checking URCs
+    // This loop relies on readResponse being called via isAlive()
+    uint32_t start = millis();
+    uint32_t delay_count = 50;
+    while ((_httpRequestSuccessBit[requestType] == TriBoolUndefined) && !is_timedout(start, timeout)) {
+        if (useURC) {
+            isAlive();
+            if (_httpRequestSuccessBit[requestType] != TriBoolUndefined) {
+                break;
+            }
+        }
+        else {
+            uint32_t size;
+            getFileSize(HTTP_RECEIVE_FILENAME, size);
+            println("AT+UHTTPER=0");
+            if (readResponse(NULL, 100) == GSMResponseOK) {
+                break;
+            }
+        }
+
+        sodaq_wdt_safe_delay(delay_count);
+        // Next time wait a little longer, but not longer than 5 seconds
+        if (delay_count < 5000) {
+            delay_count += 250;
+        }
+    }
+
+    if (_httpRequestSuccessBit[requestType] == TriBoolTrue) {
+        uint32_t file_size;
+        if (!getFileSize(HTTP_RECEIVE_FILENAME, file_size)) {
+            debugPrintln(DEBUG_STR_ERROR "Could not determine file size");
+            return 0;
+        }
+        if (responseBuffer && responseSize > 0 && file_size < responseSize) {
+            return readFile(HTTP_RECEIVE_FILENAME, (uint8_t*)responseBuffer, responseSize);
+        }
+        else {
+            // On AVR this can give size_t overflow
+            return file_size;
+        }
+    }
+    else if (_httpRequestSuccessBit[requestType] == TriBoolFalse) {
+        debugPrintln(DEBUG_STR_ERROR "An error occurred with the http request!");
+        return 0;
+    }
+    else {
+        debugPrintln(DEBUG_STR_ERROR "Timed out waiting for a response for the http request!");
+        return 0;
+    }
+
+    return 0;
+}
+
+
+//  Paremeter index has a range [0-4]
+//  Parameters 'name' and 'value' can have a maximum length of 64 characters
+//  Parameters 'name' and 'value' must not include the ':' character
+bool Sodaq_R4X::httpSetCustomHeader(uint8_t index, const char* name, const char* value)
+{
+    print("AT+UHTTP=0,9,\"");
+    print(index);
+    print(':');
+
+    if (name != NULL) {
+        print(name);
+        print(':');
+        print(value);
+    }
+
+    println('"');
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_R4X::httpClearCustomHeader(uint8_t index)
+{
+    return httpSetCustomHeader(index, NULL, NULL);
 }
 
 
@@ -2385,6 +2528,7 @@ void Sodaq_SARA_R4XX_OnOff::on()
 
     pinMode(SARA_R4XX_TOGGLE, OUTPUT);
     digitalWrite(SARA_R4XX_TOGGLE, LOW);
+    // We should be able to reduce this to 50ms or something
     sodaq_wdt_safe_delay(2000);
     pinMode(SARA_R4XX_TOGGLE, INPUT);
 

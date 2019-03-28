@@ -67,8 +67,8 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
         return n2xNetwork.init(modemStream, callback, messages, join);
     }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_LTEM:
-    case NETWORK_TYPE_2G: {
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
         if (_diagStream) {
             r4xNetwork.setDiag(_diagStream);
         }
@@ -77,7 +77,7 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
             r4xNetwork.setConsoleStream(_consoleStream);
         }
 
-        const char* urat = (_networkType == NETWORK_TYPE_NBIOT_R4 ? "8" : (_networkType == NETWORK_TYPE_LTEM ? "7" : "9"));
+        const char* urat = (_networkType == NETWORK_TYPE_NBIOT_R4 ? "8" : (_networkType == NETWORK_TYPE_LTEM_R4 ? "7" : "9"));
 
         return r4xNetwork.init(modemStream, callback, messages, join, urat);
     }
@@ -117,8 +117,8 @@ uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
         return n2xNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_LTEM:
-    case NETWORK_TYPE_2G: {
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
         return r4xNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_LORA: {
@@ -142,8 +142,8 @@ void Network::loopHandler()
         break;
     }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_LTEM:
-    case NETWORK_TYPE_2G: {
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
         r4xNetwork.loopHandler();
         break;
     }
@@ -170,8 +170,8 @@ void Network::sleep()
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_LTEM:
-        case NETWORK_TYPE_2G: {
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
             r4xNetwork.sleep();
             break;
         }
@@ -198,8 +198,8 @@ void Network::setActive(bool on)
         break;
     }
     case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_LTEM:
-    case NETWORK_TYPE_2G: {
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
         r4xNetwork.setActive(on);
         break;
     }
@@ -225,8 +225,8 @@ uint32_t Network::getBaudRate()
             return n2xNetwork.getBaudRate();
         }
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_LTEM:
-        case NETWORK_TYPE_2G: {
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
             return r4xNetwork.getBaudRate();
         }
         case NETWORK_TYPE_LORA: {
@@ -267,8 +267,8 @@ const char* Network::getIMEI()
                 break;
             }
             case NETWORK_TYPE_NBIOT_R4:
-            case NETWORK_TYPE_LTEM:
-            case NETWORK_TYPE_2G: {
+            case NETWORK_TYPE_LTEM_R4:
+            case NETWORK_TYPE_2G_R4: {
                 success = r4xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
@@ -310,8 +310,8 @@ const char* Network::getModuleVersion()
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
-        case NETWORK_TYPE_LTEM:
-        case NETWORK_TYPE_2G: {
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
             success = r4xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }

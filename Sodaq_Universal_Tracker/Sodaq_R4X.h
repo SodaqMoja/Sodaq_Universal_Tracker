@@ -182,21 +182,30 @@ public:
     * Sockets
     *****************************************************************************/
 
-    bool   socketClose(uint8_t socketID, bool async = false);
-    bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
     int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
-    size_t socketGetPendingBytes(uint8_t socketID);
-    bool   socketHasPendingBytes(uint8_t socketID);
-    bool   socketIsClosed(uint8_t socketID);
-    size_t socketRead(uint8_t socketID, uint8_t* buffer, size_t length);
-    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
-    size_t socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size);
+
     bool   socketSetR4KeepAlive(uint8_t socketID);
     bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2 = 0);
-    bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
-    bool   socketWaitForRead(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
-    bool   socketWaitForReceive(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+
+    // Required for TCP, optional for UDP (for UDP socketConnect() + socketWrite() == socketSend())
+    bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
     size_t socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size);
+
+    // TCP only
+    bool   socketWaitForRead(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+    size_t socketRead(uint8_t socketID, uint8_t* buffer, size_t length);
+
+    // UDP only
+    size_t socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size);
+    bool   socketWaitForReceive(uint8_t socketID, uint32_t timeout = SODAQ_R4X_DEFAULT_READ_TIMOUT);
+    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
+
+    bool   socketClose(uint8_t socketID, bool async = false);
+    bool   socketIsClosed(uint8_t socketID);
+    bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
+
+    size_t socketGetPendingBytes(uint8_t socketID);
+    bool   socketHasPendingBytes(uint8_t socketID);
 
 
     /******************************************************************************
@@ -250,6 +259,14 @@ public:
                       char* responseBuffer, size_t responseSize,
                       const char* sendBuffer, size_t sendSize, uint32_t timeout = 60000, bool useURC = true);
 
+    // Creates an HTTP POST request and optionally returns the received data.
+    // Note. Endpoint should include the initial "/".
+    // The UBlox device stores the received data in http_last_response_<profile_id>
+    // Request body must first be prepared in a file on the modem
+    uint32_t httpPostFromFile(const char* server, uint16_t port, const char* endpoint,
+                      char* responseBuffer, size_t responseSize,
+                      const char* fileName, uint32_t timeout = 60000, bool useURC = true);
+
     // Creates an HTTP request using the (optional) given buffer and
     // (optionally) returns the received data.
     // endpoint should include the initial "/".
@@ -257,6 +274,22 @@ public:
                        HttpRequestTypes requestType = HttpRequestTypes::GET,
                        char* responseBuffer = NULL, size_t responseSize = 0,
                        const char* sendBuffer = NULL, size_t sendSize = 0, uint32_t timeout = 60000, bool useURC = true);
+
+     // Creates an HTTP request using the (optional) given buffer and
+     // (optionally) returns the received data.
+     // endpoint should include the initial "/".
+     // Request body must first be prepared in a file on the modem
+     size_t httpRequestFromFile(const char* server, uint16_t port, const char* endpoint,
+                       HttpRequestTypes requestType = HttpRequestTypes::GET,
+                       char* responseBuffer = NULL, size_t responseSize = 0,
+                       const char* fileName = NULL, uint32_t timeout = 60000, bool useURC = true);
+
+    //  Paremeter index has a range [0-4]
+    //  Parameters 'name' and 'value' can have a maximum length of 64 characters
+    //  Parameters 'name' and 'value' must not include the ':' character
+    bool httpSetCustomHeader(uint8_t index, const char* name, const char* value);
+    bool httpClearCustomHeader(uint8_t index);
+
 
     /******************************************************************************
     * Files
