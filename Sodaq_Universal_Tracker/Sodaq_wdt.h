@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018, SODAQ
+Copyright (c) 2016-19, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
+
 #ifndef SODAQ_WDT_H_
 #define SODAQ_WDT_H_
 
@@ -38,9 +39,33 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #endif
 
+/*
+  To avoid naming conflicts with 'avr/wdt.h', the 'sodaq_' prefix has
+  been attached to these methods. e.g. 'sodaq_wdt_reset()'.
+
+  There is an enumeration, called 'wdt_period', of the possible interrupt 
+  periods ranging from 15ms to 8s. The SAMD also supports an 8ms period, but 
+  this has been omitted as the AVR platform doesn't. Some of the shorter 
+  periods are an approximate equivalent e.g.AVR = 120ms SAMD = 125ms.
+
+  On the SAMD platform this library uses 'Normal Mode' with the 'Early Warning' 
+  interrupt enabled. The 'Early Warning' interrupt is set to the specified 
+  period, and the board reset to twice that. So if a period of 1s is specified 
+  the interrupt will fire after 1s and the board will reset 1s afterwards 
+  (if 'sodaq_wdt_reset()' is not called before).
+
+  Because the board reset period is set to twice that of the interrupt period, 
+  the 16s period on the SAMD board is used when an 8s period is specified.
+
+  A safe delay method, 'sodaq_wdt_safe_delay(ms)', has been added. This method 
+  will block and only return after the specified number of milliseconds have 
+  elapsed. It calls 'delay(ms)' in 10ms increments, and calls 
+  'sodaq_wdt_reset()' between.
+*/
+
 // Approximate periods supported by both platforms
 // The SAMD also supports 8ms and 16s.
-enum wdt_period : uint8_t
+enum wdt_period : uint8_t 
 {
 #ifdef ARDUINO_ARCH_AVR
 
@@ -55,8 +80,8 @@ enum wdt_period : uint8_t
   WDT_PERIOD_2X      = WDTO_2S,    // 2000ms = 2s
   WDT_PERIOD_4X      = WDTO_4S,    // 4000ms = 4s
   WDT_PERIOD_8X      = WDTO_8S     // 8000ms = 8s
-
-#elif defined(ARDUINO_ARCH_SAMD)
+  
+#elif ARDUINO_ARCH_SAMD  
 
   // See Arduino15/packages/arduino/tools/CMSIS/4.0.0-atmel/Device/ATMEL/samd21/include/component/wdt.h
   // It is easier to use numeric values as there are two
@@ -73,7 +98,7 @@ enum wdt_period : uint8_t
   WDT_PERIOD_2X     = 8,   // 2048 cycles = 2s
   WDT_PERIOD_4X     = 9,   // 4096 cycles = 4s
   WDT_PERIOD_8X     = 10   // 8192 cycles = 8s
-
+  
 #endif
 };
 

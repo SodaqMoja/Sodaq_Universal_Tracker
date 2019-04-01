@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018, SODAQ
+Copyright (c) 2016-19, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -134,9 +134,9 @@ void sodaq_wdt_enable(wdt_period period)
     WDT->INTENSET.reg = WDT_INTENSET_EW;
 
     // Enable interrupt vector for WDT
-    // Priority is set to 0x00, the highest
+    // Priority is set to 0x03, the lowest
     NVIC_EnableIRQ(WDT_IRQn);
-    NVIC_SetPriority(WDT_IRQn, 0x00);
+    NVIC_SetPriority(WDT_IRQn, 0x03);
   }
 
 #endif
@@ -175,7 +175,8 @@ void sodaq_wdt_reset()
 
 #elif defined(ARDUINO_ARCH_SAMD)
 
-  // Reset counter and wait for synchronisation
+  // Wait if currently syncing, reset counter and wait for synchronisation
+  while (WDT->STATUS.reg & WDT_STATUS_SYNCBUSY);
   WDT->CLEAR.reg = WDT_CLEAR_CLEAR_KEY;
   while (WDT->STATUS.reg & WDT_STATUS_SYNCBUSY);
 
@@ -186,17 +187,15 @@ void sodaq_wdt_safe_delay(uint32_t ms)
 {
   // Delay step size
   uint32_t delay_step = 10;
+  uint32_t endMS = millis() + ms;
 
   // Loop through and reset between steps
-  while (ms > delay_step) {
+  while (millis() < endMS) {
     sodaq_wdt_reset();
-    delay(delay_step);
-    ms -= delay_step;
-  }
 
-  // Delay for the remainder
-  sodaq_wdt_reset();
-  delay(ms);
+    int32_t remaining = (endMS - millis());
+    delay((remaining  > delay_step) ? delay_step : remaining);
+  }
 }
 
 #ifdef ARDUINO_ARCH_AVR
