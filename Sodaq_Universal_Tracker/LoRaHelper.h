@@ -74,6 +74,7 @@ public:
     void setPowerIndex(uint8_t powerIndex) { _powerIndex = powerIndex; };
     void setActive(bool on);
     bool isInitialized() { return _isInitialized; };
+    void setInitialized(bool isInitialized) { _isInitialized = isInitialized; }
     uint8_t getHWEUI(uint8_t* hweui, uint8_t size);
     bool join();
     uint8_t transmit(uint8_t* buffer, uint8_t size, int16_t overrideLoRaPort = -1);

@@ -85,7 +85,7 @@ bool LoraNetwork::init(Uart & modemStream, DataReceiveCallback callback, uint32_
     bool result;
 
     modemStream.begin(LoRaBee.getDefaultBaudRate());
-    result = LoRaBee.init(modemStream, LORA_RESET);
+
     LoRaBee.setReceiveCallback(callback);
     LoRa.init(LoRaBee, getNow);
 
@@ -100,15 +100,23 @@ bool LoraNetwork::init(Uart & modemStream, DataReceiveCallback callback, uint32_
     LoRa.setSpreadingFactor(params.getSpreadingFactor());
     LoRa.setPowerIndex(params.getPowerIndex());
 
-    if (join == INIT_JOIN) {
-        result = LoRa.join();
+    if (LoRaBee.initResume(modemStream, LORA_RESET)) {
+        LoRa.setInitialized(true);
+        result = true;
+    }
+    else {
+        result = LoRaBee.init(modemStream, LORA_RESET, true, true);
 
-        if (messages == INIT_SHOW_CONSOLE_MESSAGES) {
-            if (result) {
-                consolePrintln("LoRa initialized.");
-            }
-            else {
-                consolePrintln("LoRa initialization failed!");
+        if (join == INIT_JOIN) {
+            result = LoRa.join();
+
+            if (messages == INIT_SHOW_CONSOLE_MESSAGES) {
+                if (result) {
+                    consolePrintln("LoRa initialized.");
+                }
+                else {
+                    consolePrintln("LoRa initialization failed!");
+                }
             }
         }
     }
@@ -131,6 +139,12 @@ uint8_t* LoraNetwork::getHWEUI(Uart & modemStream, DataReceiveCallback callback,
         }
     }
     return loraHWEui;
+}
+
+bool LoraNetwork::resetLora(Uart& modemStream)
+{
+    modemStream.begin(LoRaBee.getDefaultBaudRate());
+    return LoRaBee.init(modemStream, LORA_RESET, false, true) && LoRaBee.saveState();
 }
 
 void LoraNetwork::setDevAddrOrEUItoHWEUI(Uart & modemStream, DataReceiveCallback callback, uint32_t(*getNow)())

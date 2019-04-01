@@ -649,6 +649,7 @@ void setNow(uint32_t newEpoch)
 void handleBootUpCommands()
 {
     setResetDevAddrOrEUItoHWEUICallback(setDevAddrOrEUItoHWEUI);
+    setResetLoraCallback(resetLora);
     setShowImeiCallback(showImei);
     setShowModuleVersionCallback(showModuleVersion);
 
@@ -1226,6 +1227,15 @@ void onConfigReset(void)
     params._isDebugOn = true;
 #endif
 
+}
+
+void resetLora()
+{
+#ifdef ARDUINO_SODAQ_ONE
+    consolePrint("\r\nLoRa resetting... ");
+    bool b = network.getLoraNetwork().resetLora(MODEM_STREAM);
+    consolePrintln(b ? "ok" : "fail");
+#endif
 }
 
 void setDevAddrOrEUItoHWEUI()

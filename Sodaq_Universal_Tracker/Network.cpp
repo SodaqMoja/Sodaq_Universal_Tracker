@@ -43,9 +43,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 LoraNetwork loraNetwork;
-NbiotNetwork nbiotNetwork;
-Network3G network3G;
-LteNetwork lteNetwork;
+N2xNetwork  n2xNetwork;
+R4xNetwork  r4xNetwork;
+Network3G   network3G;
 
 static bool isImeiInitialized;
 static char cachedImei[16];
@@ -55,19 +55,31 @@ static char cachedModuleVersion[50];
 bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*getNow)(), InitConsoleMessages messages, InitJoin join)
 {
     switch (_networkType) {
-    case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_NBIOT_N2: {
         if (_diagStream) {
-            nbiotNetwork.setDiag(_diagStream);
+            n2xNetwork.setDiag(_diagStream);
         }
 
         if (_consoleStream) {
-            nbiotNetwork.setConsoleStream(_consoleStream);
+            n2xNetwork.setConsoleStream(_consoleStream);
         }
 
-        bool shouldUseR4 = (_networkType == NETWORK_TYPE_NBIOT_R4);
+        return n2xNetwork.init(modemStream, callback, messages, join);
+    }
+    case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
+        if (_diagStream) {
+            r4xNetwork.setDiag(_diagStream);
+        }
 
-        return nbiotNetwork.init(modemStream, callback, messages, join, shouldUseR4);
+        if (_consoleStream) {
+            r4xNetwork.setConsoleStream(_consoleStream);
+        }
+
+        const char* urat = (_networkType == NETWORK_TYPE_NBIOT_R4 ? "8" : (_networkType == NETWORK_TYPE_LTEM_R4 ? "7" : "9"));
+
+        return r4xNetwork.init(modemStream, callback, messages, join, urat);
     }
     case NETWORK_TYPE_LORA: {
         if (_diagStream) {
@@ -91,17 +103,6 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
 
         return network3G.init(modemStream, callback, messages, join);
     }
-    case NETWORK_TYPE_LTEM: {
-        if (_diagStream) {
-            lteNetwork.setDiag(_diagStream);
-        }
-
-        if (_consoleStream) {
-            lteNetwork.setConsoleStream(_consoleStream);
-        }
-
-        return lteNetwork.init(modemStream, callback, messages, join);
-    }
     default: {
         debugPrintLn("Unsupported network type");
         return false;
@@ -112,19 +113,19 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
 uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
     switch (_networkType) {
-    case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_NBIOT_N2: {
-        return nbiotNetwork.transmit(buffer, size, rxTimeout);
+        return n2xNetwork.transmit(buffer, size, rxTimeout);
+    }
+    case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
+        return r4xNetwork.transmit(buffer, size, rxTimeout);
     }
     case NETWORK_TYPE_LORA: {
         return LoRa.transmit(buffer, size);
     }
     case NETWORK_TYPE_2G_3G: {
         return network3G.transmit(buffer, size, rxTimeout);
-    }
-    case NETWORK_TYPE_LTEM: {
-        return lteNetwork.transmit(buffer, size, rxTimeout);
-    return 0;
     }
     default: {
         debugPrintLn("Unsupported network type");
@@ -136,9 +137,14 @@ uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 void Network::loopHandler()
 {
     switch (_networkType) {
-    case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_NBIOT_N2: {
-        nbiotNetwork.loopHandler();
+        n2xNetwork.loopHandler();
+        break;
+    }
+    case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
+        r4xNetwork.loopHandler();
         break;
     }
     case NETWORK_TYPE_LORA: {
@@ -147,10 +153,6 @@ void Network::loopHandler()
     }
     case NETWORK_TYPE_2G_3G: {
         network3G.loopHandler();
-        break;
-    }
-    case NETWORK_TYPE_LTEM: {
-        lteNetwork.loopHandler();
         break;
     }
     default: {
@@ -163,9 +165,14 @@ void Network::loopHandler()
 void Network::sleep()
 {
     switch (_networkType) {
-        case NETWORK_TYPE_NBIOT_R4:
         case NETWORK_TYPE_NBIOT_N2: {
-            nbiotNetwork.sleep();
+            n2xNetwork.sleep();
+            break;
+        }
+        case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
+            r4xNetwork.sleep();
             break;
         }
         case NETWORK_TYPE_LORA: {
@@ -174,10 +181,6 @@ void Network::sleep()
         }
         case NETWORK_TYPE_2G_3G: {
             network3G.sleep();
-            break;
-        }
-        case NETWORK_TYPE_LTEM: {
-            lteNetwork.sleep();
             break;
         }
         default: {
@@ -190,9 +193,14 @@ void Network::sleep()
 void Network::setActive(bool on)
 {
     switch (_networkType) {
-    case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_NBIOT_N2: {
-        nbiotNetwork.setActive(on);
+        n2xNetwork.setActive(on);
+        break;
+    }
+    case NETWORK_TYPE_NBIOT_R4:
+    case NETWORK_TYPE_LTEM_R4:
+    case NETWORK_TYPE_2G_R4: {
+        r4xNetwork.setActive(on);
         break;
     }
     case NETWORK_TYPE_LORA: {
@@ -201,10 +209,6 @@ void Network::setActive(bool on)
     }
     case NETWORK_TYPE_2G_3G: {
         network3G.setActive(on);
-        break;
-    }
-    case NETWORK_TYPE_LTEM: {
-        lteNetwork.setActive(on);
         break;
     }
     default: {
@@ -217,18 +221,19 @@ void Network::setActive(bool on)
 uint32_t Network::getBaudRate()
 {
     switch (_networkType) {
-        case NETWORK_TYPE_NBIOT_R4:
         case NETWORK_TYPE_NBIOT_N2: {
-            return nbiotNetwork.getBaudRate();
+            return n2xNetwork.getBaudRate();
+        }
+        case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
+            return r4xNetwork.getBaudRate();
         }
         case NETWORK_TYPE_LORA: {
             return loraNetwork.getBaudRate();
         }
         case NETWORK_TYPE_2G_3G: {
             return network3G.getBaudRate();
-        }
-        case NETWORK_TYPE_LTEM: {
-            return lteNetwork.getBaudRate();
         }
         default: {
             debugPrintLn("Unsupported network type");
@@ -257,9 +262,14 @@ const char* Network::getIMEI()
         bool success = false;
 
         switch (_networkType) {
-            case NETWORK_TYPE_NBIOT_R4:
             case NETWORK_TYPE_NBIOT_N2: {
-                success = nbiotNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
+                success = n2xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            case NETWORK_TYPE_NBIOT_R4:
+            case NETWORK_TYPE_LTEM_R4:
+            case NETWORK_TYPE_2G_R4: {
+                success = r4xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
             case NETWORK_TYPE_LORA: {
@@ -267,10 +277,6 @@ const char* Network::getIMEI()
             }
             case NETWORK_TYPE_2G_3G: {
                 success = network3G.getIMEI(tmpBuffer, sizeof(tmpBuffer));
-                break;
-            }
-            case NETWORK_TYPE_LTEM: {
-                success = lteNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
             default: {
@@ -299,9 +305,14 @@ const char* Network::getModuleVersion()
         bool success = false;
 
         switch (_networkType) {
-        case NETWORK_TYPE_NBIOT_R4:
         case NETWORK_TYPE_NBIOT_N2: {
-            success = nbiotNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
+            success = n2xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
+            break;
+        }
+        case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
+            success = r4xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }
         case NETWORK_TYPE_LORA: {
@@ -309,10 +320,6 @@ const char* Network::getModuleVersion()
         }
         case NETWORK_TYPE_2G_3G: {
             // TODO success = network3G.getVersion(tmpBuffer, sizeof(tmpBuffer));
-            break;
-        }
-        case NETWORK_TYPE_LTEM: {
-            success = lteNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }
         default: {

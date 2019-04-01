@@ -47,6 +47,7 @@ public:
 
     uint8_t* getHWEUI(Uart& modemStream, DataReceiveCallback callback, uint32_t(*getNow)());
 
+    bool resetLora(Uart& modemStream);
     void setDevAddrOrEUItoHWEUI(Uart& modemStream, DataReceiveCallback callback, uint32_t(*getNow)());
 
     void sleep();

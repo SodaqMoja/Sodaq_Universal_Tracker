@@ -36,9 +36,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "Enums.h"
 #include "LoRaHelper.h"
 #include "LoraNetwork.h"
-#include "NbiotNetwork.h"
+#include "N2xNetwork.h"
+#include "R4xNetwork.h"
 #include "3GNetwork.h"
-#include "LteNetwork.h"
 
 class Network {
 public:
@@ -47,7 +47,8 @@ public:
         NETWORK_TYPE_LORA,
         NETWORK_TYPE_NBIOT_N2,
         NETWORK_TYPE_NBIOT_R4,
-        NETWORK_TYPE_LTEM,
+        NETWORK_TYPE_LTEM_R4,
+        NETWORK_TYPE_2G_R4,
         NETWORK_TYPE_2G_3G,
     };
 
