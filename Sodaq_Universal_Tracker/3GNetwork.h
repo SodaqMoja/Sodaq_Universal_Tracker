@@ -44,7 +44,7 @@ public:
     void printIpTuple(uint8_t o1, uint8_t o2, uint8_t o3, uint8_t o4);
 
     /**
-    Initializes the lora module according to the given operation (join or skip).
+    Initializes the module according to the given operation (join or skip).
     Returns true if the operation was successful.
     */
     bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join);
