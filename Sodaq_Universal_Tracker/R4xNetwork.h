@@ -37,7 +37,7 @@ POSSIBILITY OF SUCH DAMAGE.
 class R4xNetwork {
 public:
     /**
-    Initializes the lora module according to the given operation (join or skip).
+    Initializes the module according to the given operation (join or skip).
     Returns true if the operation was successful.
     */
     bool init(Uart& modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, const char* urat);
