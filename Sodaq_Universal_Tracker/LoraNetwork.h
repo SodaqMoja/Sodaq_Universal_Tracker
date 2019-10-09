@@ -55,7 +55,7 @@ public:
     /**
     * Turns the LoRa module on or off (wake up or sleep)
     */
-    void setActive(bool on);
+    bool setActive(bool on);
 
     // Sets the optional "Diagnostics and Debug" stream.
     void setDiag(Stream& stream) { _diagStream = &stream; }

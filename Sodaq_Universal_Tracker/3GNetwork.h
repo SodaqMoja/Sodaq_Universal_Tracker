@@ -52,7 +52,7 @@ public:
     /**
     * Turns the nbiot module on or off (and connects/disconnects)
     */
-    void setActive(bool on);
+    bool setActive(bool on);
 
     uint8_t transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout);
 
@@ -67,6 +67,7 @@ public:
     void setConsoleStream(Stream* stream) { _consoleStream = stream; }
 
     uint32_t getBaudRate() { return _baudRate; }
+    bool getCCID(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
 private:
     DataReceiveCallback _callback;

@@ -132,8 +132,12 @@ public:
 
     bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
     bool getCCID(char* buffer, size_t size);
+    bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
+    bool getOperatorInfoString(char* buffer, size_t size);
+    bool getCellId(uint16_t* tac, uint32_t* cid);
     bool getEpoch(uint32_t* epoch);
     bool getFirmwareVersion(char* buffer, size_t size);
+    bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
     bool execCommand(const char* command, uint32_t timeout = DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
 
@@ -253,10 +257,6 @@ private:
 
     // The buffer used when reading from the modem. The space is allocated during init() via initBuffer().
     char* _inputBuffer;
-
-    char * _apn;
-    char * _apnUser;
-    char * _apnPass;
 
     // This flag keeps track if the next write is the continuation of the current command
     // A Carriage Return will reset this flag.

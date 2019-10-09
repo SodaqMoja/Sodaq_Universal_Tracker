@@ -51,6 +51,8 @@ static bool isImeiInitialized;
 static char cachedImei[16];
 static bool isModuleVersionInitialized;
 static char cachedModuleVersion[50];
+static bool isCcidInitialized;
+static char cachedCcid[32];
 
 bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*getNow)(), InitConsoleMessages messages, InitJoin join)
 {
@@ -190,32 +192,34 @@ void Network::sleep()
     }
 }
 
-void Network::setActive(bool on)
+bool Network::setActive(bool on)
 {
+    bool success = false;
     switch (_networkType) {
-    case NETWORK_TYPE_NBIOT_N2: {
-        n2xNetwork.setActive(on);
-        break;
+        case NETWORK_TYPE_NBIOT_N2: {
+            success = n2xNetwork.setActive(on);
+            break;
+        }
+        case NETWORK_TYPE_NBIOT_R4:
+        case NETWORK_TYPE_LTEM_R4:
+        case NETWORK_TYPE_2G_R4: {
+            success = r4xNetwork.setActive(on);
+            break;
+        }
+        case NETWORK_TYPE_LORA: {
+            success = loraNetwork.setActive(on);
+            break;
+        }
+        case NETWORK_TYPE_2G_3G: {
+            success = network3G.setActive(on);
+            break;
+        }
+        default: {
+            debugPrintLn("Unsupported network type");
+            break;
+        }
     }
-    case NETWORK_TYPE_NBIOT_R4:
-    case NETWORK_TYPE_LTEM_R4:
-    case NETWORK_TYPE_2G_R4: {
-        r4xNetwork.setActive(on);
-        break;
-    }
-    case NETWORK_TYPE_LORA: {
-        loraNetwork.setActive(on);
-        break;
-    }
-    case NETWORK_TYPE_2G_3G: {
-        network3G.setActive(on);
-        break;
-    }
-    default: {
-        debugPrintLn("Unsupported network type");
-        break;
-    }
-    }
+    return success;
 }
 
 uint32_t Network::getBaudRate()
@@ -292,6 +296,49 @@ const char* Network::getIMEI()
     }
 
     return cachedImei;
+#else
+    return "NA";
+#endif
+}
+
+const char* Network::getCCID()
+{
+#if defined(ARDUINO_SODAQ_SFF) || defined(ARDUINO_SODAQ_SARA)
+    if (!isCcidInitialized) {
+        char tmpBuffer[32];
+        bool success = false;
+
+        switch (_networkType) {
+            case NETWORK_TYPE_NBIOT_N2: {
+                success = n2xNetwork.getCCID(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            case NETWORK_TYPE_NBIOT_R4:
+            case NETWORK_TYPE_LTEM_R4:
+            case NETWORK_TYPE_2G_R4: {
+                success = r4xNetwork.getCCID(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            case NETWORK_TYPE_LORA: {
+                break;
+            }
+            case NETWORK_TYPE_2G_3G: {
+                success = network3G.getCCID(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            default: {
+                debugPrintLn("Unsupported network type");
+                break;
+            }
+        }
+
+        if (success) {
+            strncpy(cachedCcid, tmpBuffer, sizeof(cachedCcid));
+            isCcidInitialized = true;
+        }
+    }
+
+    return cachedCcid;
 #else
     return "NA";
 #endif

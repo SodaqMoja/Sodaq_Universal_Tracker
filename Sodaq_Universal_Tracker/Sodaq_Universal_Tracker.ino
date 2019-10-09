@@ -51,10 +51,9 @@ POSSIBILITY OF SUCH DAMAGE.
 //#define DEBUG
 
 #define PROJECT_NAME "SODAQ - Universal Tracker"
-#define VERSION "1.0.1"
+#define VERSION "1.0.2"
 #define STARTUP_DELAY 5000
 
-// #define DEFAULT_TEMPERATURE_SENSOR_OFFSET 33
 // #define DEFAULT_LORA_PORT 2
 // #define DEFAULT_IS_OTAA_ENABLED 1
 // #define DEFAULT_DEVADDR_OR_DEVEUI "0000000000000000"
@@ -225,27 +224,20 @@ void setup()
     params.setConfigResetCallback(onConfigReset);
     params.read();
 
-    // if allowed, init early for faster initial fix
-    if (params.getIsGpsOn()) {
-        isGpsInitialized = initGps();
-    }
+    // init early for faster initial fix
+    isGpsInitialized = initGps();
 
     // disable the watchdog only for the boot menu
-    sodaq_wdt_disable();
-    handleBootUpCommands();
-    sodaq_wdt_enable(WDT_PERIOD_8X);
+    // only show the boot menu if it is not a wdt reset
+    if ((PM->RCAUSE.reg & PM_RCAUSE_WDT) == 0) {
+        sodaq_wdt_disable();
+        handleBootUpCommands();
+        sodaq_wdt_enable(WDT_PERIOD_8X);
+    }
 
     // make sure the debug option is honored
     if (params.getIsDebugOn() && ((long)&CONSOLE_STREAM != (long)&DEBUG_STREAM)) {
         DEBUG_STREAM.begin(DEBUG_BAUD);
-    }
-
-    // make sure the GPS status honors the new user params
-    if (!params.getIsGpsOn()) {
-        isGpsInitialized = false; // force not to use GPS
-    }
-    else if (!isGpsInitialized) {
-        isGpsInitialized = initGps();
     }
 
     network.setDiag(DEBUG_STREAM);
@@ -566,14 +558,7 @@ void initOnTheMove()
 void systemSleep()
 {
     MODEM_STREAM.flush();
-    network.sleep();
-#ifdef ARDUINO_SODAQ_SFF
-    MODEM_STREAM.end();
-    pinMode(MODEM_STREAM_RX, OUTPUT);
-    pinMode(MODEM_STREAM_TX, OUTPUT);
-    digitalWrite(MODEM_STREAM_RX, HIGH);
-    digitalWrite(MODEM_STREAM_TX, LOW);
-#endif
+    network.setActive(false);
 
     setLedColor(NONE);
     setGpsActive(false); // explicitly disable after resetting the pins
@@ -588,10 +573,6 @@ void systemSleep()
         }
         interrupts();
     }
-
-#ifdef ARDUINO_SODAQ_SFF
-    MODEM_STREAM.begin(network.getBaudRate());
-#endif
 }
 
 /**
@@ -651,6 +632,7 @@ void handleBootUpCommands()
     setResetDevAddrOrEUItoHWEUICallback(setDevAddrOrEUItoHWEUI);
     setResetLoraCallback(resetLora);
     setShowImeiCallback(showImei);
+    setShowCcidCallback(showCcid);
     setShowModuleVersionCallback(showModuleVersion);
 
     do {
@@ -672,6 +654,24 @@ void showImei()
     consolePrintln("Modem initialized.");
     consolePrint("IMEI: ");
     consolePrintln(network.getIMEI());
+
+    consolePrintln("Please note that the modem is now initialized.");
+    consolePrintln("*** If you need to change the type of network please reboot first.");
+
+    network.setActive(false);
+}
+
+void showCcid()
+{
+    consolePrintln("Initializing modem...");
+    network.setDiag(DEBUG_STREAM);
+    network.setConsoleStream(CONSOLE_STREAM);
+    network.setNetworkType((Network::NetworkType)params.getNetworkType());
+    network.init(MODEM_STREAM, updateConfigOverTheAir, getNow, INIT_SHOW_CONSOLE_MESSAGES, INIT_SKIP_JOIN);
+
+    consolePrintln("Modem initialized.");
+    consolePrint("CCID: ");
+    consolePrintln(network.getCCID());
 
     consolePrintln("Please note that the modem is now initialized.");
     consolePrintln("*** If you need to change the type of network please reboot first.");
@@ -933,11 +933,16 @@ bool getGpsFixAndTransmit()
 
         return false;
     }
-
+    
     bool isSuccessful = false;
     setGpsActive(true);
-    navPvtCounter = 0;
 
+#if defined(ARDUINO_SODAQ_SFF) || defined (ARDUINO_SODAQ_SARA)
+    // save time by turning on the GPS module and connect to network in the same time.
+    network.setActive(true);
+#endif
+
+    navPvtCounter = 0;
     pendingReportDataRecord.setSatelliteCount(0); // reset satellites to use them as a quality metric in the loop
     uint32_t startTime = getNow();
     while ((getNow() - startTime <= params.getGpsFixTimeout())
@@ -1142,10 +1147,6 @@ static void printBootUpMessage(Stream& stream)
 void onConfigReset(void)
 {
     setDevAddrOrEUItoHWEUI();
-
-#ifdef DEFAULT_TEMPERATURE_SENSOR_OFFSET
-    params._temperatureSensorOffset = DEFAULT_TEMPERATURE_SENSOR_OFFSET;
-#endif
 
 #ifdef DEFAULT_LORA_PORT
     params._loraPort = DEFAULT_LORA_PORT;

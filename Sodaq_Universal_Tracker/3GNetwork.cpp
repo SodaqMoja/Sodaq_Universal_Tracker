@@ -67,7 +67,7 @@ void Network3G::printIpTuple(uint8_t o1, uint8_t o2, uint8_t o3, uint8_t o4)
 }
 
 /**
-Initializes the lora module according to the given operation (join or skip).
+Initializes the 3G module according to the given operation (join or skip).
 Returns true if the operation was successful.
 */
 
@@ -111,19 +111,23 @@ bool Network3G::init(Uart & modemStream, DataReceiveCallback callback, InitConso
 * Turns the module on or off (and connects/disconnects)
 */
 
-void Network3G::setActive(bool on)
+bool Network3G::setActive(bool on)
 {
+    bool success = false;
     if (on) {
-        sodaq_3gbee.connect();
+        success = sodaq_3gbee.connect();
     }
     else {
-        sodaq_3gbee.off();
+        success = sodaq_3gbee.off();
     }
+    return success;
 }
 
 uint8_t Network3G::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
 {
-    setActive(true);
+    if(!setActive(true)) {
+        return false;
+    }
 
     uint8_t socket = sodaq_3gbee.createSocket(UDP);
     if (sodaq_3gbee.connectSocket(socket, params.getTargetIP(), params.getTargetPort())) {
@@ -157,4 +161,9 @@ void Network3G::sleep()
 bool Network3G::getIMEI(char * buffer, size_t size)
 {
     return sodaq_3gbee.getIMEI(buffer, size);
+}
+
+bool Network3G::getCCID(char* buffer, size_t size)
+{
+    return sodaq_3gbee.getCCID(buffer, size);
 }

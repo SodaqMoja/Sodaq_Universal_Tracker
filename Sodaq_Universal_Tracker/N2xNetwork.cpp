@@ -56,7 +56,7 @@ static Sodaq_SARA_N211_OnOff saraN211OnOff;
 // END NBiot DEFINES
 
 /**
-Initializes the NB-IoT module according to the given operation (join or skip).
+Initializes the N2X module according to the given operation (join or skip).
 Returns true if the operation was successful.
 */
 bool N2xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join)
@@ -92,28 +92,34 @@ bool N2xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
 /**
 * Turns the nbiot module on or off (and connects/disconnects)
 */
-void N2xNetwork::setActive(bool on, bool needCheckConnection)
+bool N2xNetwork::setActive(bool on, bool needCheckConnection)
 {
     sodaq_wdt_reset();
+    bool success = false;
 
     if (!on || (needCheckConnection && n2x.isConnected())) {
-        return;
+        return true;
     }
 
-    if (!n2x.connect(params._apn, NULL, params._forceOperator, params._band)) {
+    success = n2x.connect(params._apn, NULL, params._forceOperator, params._band);
+    if (!success) {
         n2x.off();
         sodaq_wdt_safe_delay(450);
         n2x.on();
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        n2x.connect(params._apn, NULL, params._forceOperator, params._band);
+        success = n2x.connect(params._apn, NULL, params._forceOperator, params._band);
     }
+    
+    return success;
 }
 
 uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 {
-    setActive(true);
+    if(!setActive(true)) {
+        return false;
+    }
 
     debugPrintLn("\n\rSending message through UDP");
 
@@ -170,7 +176,12 @@ bool N2xNetwork::getIMEI(char* buffer, size_t size)
     return n2x.getIMEI(buffer, size);
 }
 
+bool N2xNetwork::getCCID(char* buffer, size_t size)
+{
+    return n2x.getCCID(buffer, size);
+}
+
 bool N2xNetwork::getModuleVersion(char* buffer, size_t size)
 {
-    return n2x.getFirmwareVersion(buffer, size);
+    return n2x.getFirmwareRevision(buffer, size);
 }
