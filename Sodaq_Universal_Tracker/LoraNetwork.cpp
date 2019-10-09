@@ -169,7 +169,7 @@ void LoraNetwork::sleep()
 * Turns the LoRa module on or off (wake up or sleep)
 */
 
-void LoraNetwork::setActive(bool on)
+bool LoraNetwork::setActive(bool on)
 {
     sodaq_wdt_reset();
 
@@ -179,4 +179,6 @@ void LoraNetwork::setActive(bool on)
     else {
         LoRaBee.sleep();
     }
+    
+    return true;
 }

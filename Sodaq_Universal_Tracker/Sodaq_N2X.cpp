@@ -238,6 +238,76 @@ bool Sodaq_N2X::getCCID(char* buffer, size_t size)
     return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
 }
 
+bool Sodaq_N2X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
+{
+    println("AT+COPS?");
+
+    char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    uint32_t operatorCode = 0;
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+
+        if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
+            uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
+
+            *mcc = operatorCode / divider;
+            *mnc = operatorCode % divider;
+
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Sodaq_N2X::getOperatorInfoString(char* buffer, size_t size)
+{
+    if (size < 32 + 1) {
+         return false;
+    }
+
+    buffer[0] = 0;
+
+    println("AT+COPS?");
+
+    char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+
+        if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool Sodaq_N2X::getCellId(uint16_t* tac, uint32_t* cid)
+{
+    println("AT+CEREG=2");
+
+    if (readResponse() != GSMResponseOK) {
+        return false;
+    }
+
+    println("AT+CEREG?");
+
+    char responseBuffer[64];
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+
+        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",", tac, cid) == 2) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool Sodaq_N2X::getEpoch(uint32_t* epoch)
 {
     println("AT+CCLK?");
@@ -267,6 +337,15 @@ bool Sodaq_N2X::getFirmwareVersion(char* buffer, size_t size)
     }
 
     return execCommand("AT+CGMR", DEFAULT_READ_MS, buffer, size);
+}
+
+bool Sodaq_N2X::getFirmwareRevision(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 30 + 1) {
+        return false;
+    }
+
+    return execCommand("ATI9", DEFAULT_READ_MS, buffer, size);
 }
 
 // Gets International Mobile Equipment Identity.

@@ -56,7 +56,7 @@ static Sodaq_SARA_R4XX_OnOff saraR4xxOnOff;
 // END NBiot DEFINES
 
 /**
-Initializes the NB-IoT module according to the given operation (join or skip).
+Initializes the R4X module according to the given operation (join or skip).
 Returns true if the operation was successful.
 */
 bool R4xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join, const char* urat)
@@ -94,28 +94,47 @@ bool R4xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
 /**
 * Turns the nbiot module on or off (and connects/disconnects)
 */
-void R4xNetwork::setActive(bool on, bool needCheckConnection)
+bool R4xNetwork::setActive(bool on, bool needCheckConnection)
 {
     sodaq_wdt_reset();
+    bool success = false;
 
-    if (!on || (needCheckConnection && r4x.isConnected())) {
-        return;
+    if (!on) {
+        r4x.off();
+        return true;
     }
 
-    if (!r4x.connect(params._apn, _urat)) {
+    if (needCheckConnection && r4x.isConnected()) {
+        return true;
+    }
+
+    char nbiot_bandmask[10];
+    itoa(BAND_TO_MASK(params.getBand()), nbiot_bandmask, 10);
+
+    success = r4x.connect(params.getApn(), _urat, params.getMnoProfile(), params.getForceOperator(), BAND_MASK_UNCHANGED, nbiot_bandmask);
+    if (!success) {
         r4x.off();
         sodaq_wdt_safe_delay(450);
         r4x.on();
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        r4x.connect(params._apn, _urat);
+        success = r4x.connect(params.getApn(), _urat, params.getMnoProfile(), params.getForceOperator(), BAND_MASK_UNCHANGED, nbiot_bandmask);
     }
+    
+    // Turn off PSM and eDRX
+    r4x.execCommand("AT+CPSMS=0");
+    r4x.execCommand("AT+CEDRXS=0");
+    r4x.execCommand("AT+UPSV=0");
+    
+    return success;
 }
 
 uint8_t R4xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 {
-    setActive(true);
+    if(!setActive(true)) {
+        return false;
+    }
 
     debugPrintLn("\n\rSending message through UDP");
 
@@ -172,7 +191,12 @@ bool R4xNetwork::getIMEI(char* buffer, size_t size)
     return r4x.getIMEI(buffer, size);
 }
 
+bool R4xNetwork::getCCID(char* buffer, size_t size)
+{
+    return r4x.getCCID(buffer, size);
+}
+
 bool R4xNetwork::getModuleVersion(char* buffer, size_t size)
 {
-    return r4x.getFirmwareVersion(buffer, size);
+    return r4x.getFirmwareRevision(buffer, size);
 }

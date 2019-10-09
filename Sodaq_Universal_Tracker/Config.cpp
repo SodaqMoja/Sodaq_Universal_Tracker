@@ -107,6 +107,7 @@ void ConfigParams::reset()
     _targetIP[sizeof(_targetIP) - 1] = '\0';
 
     _cid = 1;
+    _mnoProfile = 1;
 
     _targetPort = 0;
 
@@ -125,8 +126,9 @@ void ConfigParams::reset()
     _isAckOn = 0;
     _spreadingFactor = 7;
     _powerIndex = 1;
-    _isGpsOn = 1;
     _gpsMinSatelliteCount = 4;
+
+    _isLedEnabled = 0;
     _isDebugOn = 0;
 
     _shouldRetryConnectionOnSend = true;
@@ -148,16 +150,17 @@ void ConfigParams::commit(bool forced)
     }
 
     _header = DEFAULT_HEADER;
-    _crc16 = crc16ccitt((uint8_t*)this, (uint32_t)&params._crc16 - (uint32_t)&params._header);
-
-    flash.write(*this);
+    uint16_t newCrc16 = crc16ccitt((uint8_t*)this, (uint32_t)&params._crc16 - (uint32_t)&params._header);
+    if(_crc16 != newCrc16) {
+        _crc16 = newCrc16;
+        flash.write(*this);
+    }
 
     needsCommit = false;
 }
 
 static const Command args[] = {
     { "GPS                       ", 0,      0,                  Command::show_title, 0 },
-    { "GPS (OFF=0 / ON=1)        ", "gps=", Command::set_uint8, Command::show_uint8, &params._isGpsOn },
     { "Fix Interval (min)        ", "fi=", Command::set_uint16, Command::show_uint16, &params._defaultFixInterval },
     { "Alt. Fix Interval (min)   ", "afi=", Command::set_uint16, Command::show_uint16, &params._alternativeFixInterval },
     { "Alt. Fix From (HH)        ", "affh=", Command::set_uint8, Command::show_uint8, &params._alternativeFixFromHours },
@@ -192,15 +195,18 @@ static const Command args[] = {
     { "APN                       ", "apn=", Command::set_string, Command::show_string, params._apn, sizeof(params._apn) },
     { "Force Operator            ", "opr=", Command::set_string, Command::show_string, params._forceOperator, sizeof(params._forceOperator) },
     { "CID                       ", "cid=", Command::set_uint8, Command::show_uint8, &params._cid },
+    { "MNO Profile               ", "mno=", Command::set_uint8, Command::show_uint8, &params._mnoProfile },
     { "APN user                  ", "apnu=", Command::set_string, Command::show_string, params._apnUser, sizeof(params._apnUser) },
     { "APN password              ", "apnp=", Command::set_string, Command::show_string, params._apnPassword, sizeof(params._apnPassword) },
-    { "Band                      ", "bnd=", Command::set_uint8, Command::show_uint8, &params._band },
+    { "NB-IoT Band               ", "bnd=", Command::set_uint8, Command::show_uint8, &params._band },
     { "Target IP                 ", "ip=",  Command::set_string, Command::show_string, params._targetIP, sizeof(params._targetIP) },
     { "Target port               ", "prt=", Command::set_uint16, Command::show_uint16, &params._targetPort },
     { "Response Timeout          ", "rxto=", Command::set_uint8, Command::show_uint8, &params._rxTimeout },
 #endif
     { "Misc                      ", 0,      0,                  Command::show_title, 0 },
+#if defined(ARDUINO_SODAQ_ONE)
     { "Cayenne LPP (OFF=0 / ON=1)", "cay=", Command::set_uint8, Command::show_uint8, &params._isCayennePayloadEnabled },
+#endif
     { "Status LED (OFF=0 / ON=1) ", "led=", Command::set_uint8, Command::show_uint8, &params._isLedEnabled },
 
     { "Debug (OFF=0 / ON=1)      ", "dbg=", Command::set_uint8, Command::show_uint8, &params._isDebugOn }
@@ -288,11 +294,6 @@ bool ConfigParams::checkConfig(Stream& stream)
 
     if (_isAckOn > 1) {
         stream.println("ACK must be either 0 or 1");
-        fail = true;
-    }
-
-    if (_isGpsOn > 1) {
-        stream.println("GPS must be either 0 or 1");
         fail = true;
     }
 

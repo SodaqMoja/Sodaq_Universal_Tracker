@@ -67,6 +67,7 @@ struct ConfigParams
     char _apn[32 + 1];
     char _forceOperator[32 + 1];
     uint8_t _cid;
+    uint8_t _mnoProfile;
 
     char _apnUser[32 + 1];
     char _apnPassword[32 + 1];
@@ -86,7 +87,6 @@ struct ConfigParams
 
     uint8_t _networkType;
 
-    uint8_t _isGpsOn;
     uint8_t _gpsMinSatelliteCount;
     uint8_t _coordinateUploadCount;
     uint8_t _repeatCount;
@@ -135,6 +135,7 @@ public:
     const char* getApnPassword() const { return _apnPassword; }
 
     uint8_t getCID() const { return _cid; }
+    uint8_t getMnoProfile() const { return _mnoProfile; }
 
     uint8_t getBand() const { return _band; }
     uint8_t getRXtimeout() const { return _rxTimeout; }
@@ -151,7 +152,6 @@ public:
     uint8_t getSpreadingFactor() const { return _spreadingFactor; }
     uint8_t getPowerIndex() const { return _powerIndex; }
 
-    uint8_t getIsGpsOn() const { return _isGpsOn; }
     uint8_t getGpsMinSatelliteCount() const { return _gpsMinSatelliteCount; }
     uint8_t getCoordinateUploadCount() const { return _coordinateUploadCount; }
     uint8_t getRepeatCount() const { return _repeatCount; }

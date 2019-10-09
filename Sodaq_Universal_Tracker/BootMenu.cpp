@@ -40,7 +40,7 @@ static VoidCallbackMethodPtr resetDevAddrOrEUItoHWEUICallback;
 static VoidCallbackMethodPtr resetLoraCallback;
 static VoidCallbackMethodPtr showImeiCallback;
 static VoidCallbackMethodPtr showModuleVersionCallback;
-
+static VoidCallbackMethodPtr showCcidCallback;
 
 static bool isTimedOut(uint32_t ts)
 {
@@ -83,6 +83,13 @@ static void showImei(const Command* a, const char* line)
     }
 }
 
+static void showCcid(const Command* a, const char* line)
+{
+    if (showCcidCallback) {
+        showCcidCallback();
+    }
+}
+
 void setShowModuleVersionCallback(VoidCallbackMethodPtr callback)
 {
     showModuleVersionCallback = callback;
@@ -100,12 +107,18 @@ void setShowImeiCallback(VoidCallbackMethodPtr callback)
     showImeiCallback = callback;
 }
 
+void setShowCcidCallback(VoidCallbackMethodPtr callback)
+{
+    showCcidCallback = callback;
+}
+
 static const Command args[] = {
 #if defined(ARDUINO_SODAQ_ONE)
     { "Reset DevAddr / DevEUI to the Hardware EUI", "EUI", resetDevAddrOrEUItoHWEUI, Command::show_string },
     { "Reset LoRa                                ", "RESET", resetLora, Command::show_string },
 #elif defined(ARDUINO_SODAQ_SARA) || defined(ARDUINO_SODAQ_SFF)
     { "Show IMEI                                 ", "SI", showImei, Command::show_string },
+    { "Show CCID                                 ", "SC", showCcid, Command::show_string },
     { "Show Module version                       ", "SV", showModuleVersion, Command::show_string },
 #endif
     { "Commit Settings                           ", "CS", commitSettings, Command::show_string }

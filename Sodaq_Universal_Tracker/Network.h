@@ -60,7 +60,7 @@ public:
 
     void sleep();
 
-    void setActive(bool on);
+    bool setActive(bool on);
 
     void setNetworkType(NetworkType type);
 
@@ -70,6 +70,7 @@ public:
     void setConsoleStream(Stream& stream) { _consoleStream = &stream; }
     LoraNetwork& getLoraNetwork();
     const char* getIMEI();
+    const char* getCCID();
     const char* getModuleVersion();
 
     uint32_t getBaudRate();

@@ -38,6 +38,18 @@ POSSIBILITY OF SUCH DAMAGE.
 #define SODAQ_R4X_DEFAULT_READ_TIMOUT   15000
 #define SODAQ_R4X_MAX_SOCKET_BUFFER     1024
 
+#define SODAQ_R4X_LTEM_URAT             "7"
+#define SODAQ_R4X_NBIOT_URAT            "8"
+#define SODAQ_R4X_2G_URAT               "9"
+#define SODAQ_R4X_LTEM_NBIOT_URAT       "7,8"
+#define SODAQ_R4X_LTEM_2G_URAT          "7,9"
+#define SODAQ_R4X_NBIOT_2G_URAT         "8,9"
+#define SODAQ_R4X_LTEM_NBIOT_2G_URAT    "7,8,9"
+
+#define DEFAULT_URAT                    SODAQ_R4X_NBIOT_URAT
+#define AUTOMATIC_OPERATOR              "0"
+#define BAND_MASK_UNCHANGED             0
+
 #include "Arduino.h"
 
 enum GSMResponseTypes {
@@ -56,6 +68,18 @@ enum HttpRequestTypes {
     DELETE,
     PUT,
     HttpRequestTypesMAX
+};
+
+enum MNOProfiles {
+    SWD_DEFAULT     = 0,
+    SIM_ICCID       = 1,
+    ATT             = 2,
+    VERIZON         = 3,
+    TELSTRA         = 4,
+    T_MOBILE_US     = 5,
+    CHINA_TELECOM   = 6,
+    VODAFONE        = 19,
+    STANDARD_EUROPE = 100
 };
 
 enum Protocols {
@@ -79,7 +103,10 @@ enum TriBoolStates
 
 typedef TriBoolStates tribool_t;
 
+typedef void(*PublishHandlerPtr)(const char* topic, const char* msg);
+
 #define UNUSED(x) (void)(x)
+#define BAND_TO_MASK(x) (1 << (x - 1))
 
 #define SOCKET_COUNT 7
 
@@ -120,7 +147,12 @@ public:
     bool off();
 
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* urat = 0, const char* bandMask = 0);
+    bool connect(const char* apn, const char* urat = DEFAULT_URAT, 
+        const char* bandMask = BAND_MASK_UNCHANGED);
+
+    bool connect(const char* apn, const char* uratSelect, uint8_t mnoProfile, 
+        const char* operatorSelect = AUTOMATIC_OPERATOR, const char* bandMaskLTE = BAND_MASK_UNCHANGED, 
+        const char* bandMaskNB = BAND_MASK_UNCHANGED);
 
     // Disconnects the modem from the network.
     bool disconnect();
@@ -143,9 +175,15 @@ public:
     *****************************************************************************/
 
     bool attachGprs(uint32_t timeout = 10L * 60L * 1000);
+    bool bandMasktoStr(const uint64_t bandMask, char* str, size_t size);
     bool getCCID(char* buffer, size_t size);
+    bool getIMSI(char* buffer, size_t size);
+    bool getOperatorInfo(uint16_t* mcc, uint16_t* mnc);
+    bool getOperatorInfoString(char* buffer, size_t size);
+    bool getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat);
     bool getEpoch(uint32_t* epoch);
     bool getFirmwareVersion(char* buffer, size_t size);
+    bool getFirmwareRevision(char* buffer, size_t size);
     bool getIMEI(char* buffer, size_t size);
     SimStatuses getSimStatus();
     bool execCommand(const char* command, uint32_t timeout = DEFAULT_READ_MS, char* buffer = NULL, size_t size = 0);
@@ -165,6 +203,7 @@ public:
     void purgeAllResponsesRead();
     bool setApn(const char* apn);
     bool setIndicationsActive(bool on);
+    void setNetworkStatusLED(bool on) { _networkStatusLED = on; };
     void setPin(const char* pin);
     bool setRadioActive(bool on);
     bool setVerboseErrors(bool on);
@@ -196,7 +235,7 @@ public:
     int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
 
     bool   socketSetR4KeepAlive(uint8_t socketID);
-    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint8_t optValue, uint8_t optValue2 = 0);
+    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2 = 0);
 
     // Required for TCP, optional for UDP (for UDP socketConnect() + socketWrite() == socketSend())
     bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
@@ -212,6 +251,8 @@ public:
     size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
 
     bool   socketClose(uint8_t socketID, bool async = false);
+    int    socketCloseAll();
+    bool   socketFlush(uint8_t socketID, uint32_t timeout = 10000);
     bool   socketIsClosed(uint8_t socketID);
     bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
 
@@ -234,7 +275,7 @@ public:
     uint16_t mqttReadMessages(char* buffer, size_t size, uint32_t timeout = 60 * 1000);
 
     bool mqttSetAuth(const char* name, const char* pw);
-    bool mqttSetCleanSettion(bool enabled);
+    bool mqttSetCleanSession(bool enabled);
     bool mqttSetClientId(const char* id);
     bool mqttSetInactivityTimeout(uint16_t timeout);
     bool mqttSetLocalPort(uint16_t port);
@@ -244,7 +285,7 @@ public:
 
     bool mqttSubscribe(const char* filter, uint8_t qos = 0, uint32_t timeout = 30 * 1000);
     bool mqttUnsubscribe(const char* filter);
-
+    void mqttSetPublishHandler(PublishHandlerPtr handler);
 
     /******************************************************************************
     * HTTP
@@ -327,17 +368,22 @@ private:
     int8_t    _mqttLoginResult;
     int16_t   _mqttPendingMessages;
     int8_t    _mqttSubscribeReason;
+    bool      _networkStatusLED;
     char*     _pin;
     bool      _socketClosedBit[SOCKET_COUNT];
     size_t    _socketPendingBytes[SOCKET_COUNT];
 
+    PublishHandlerPtr _mqttPublishHandler = NULL;
+
     int8_t checkApn(const char* requiredAPN); // -1: error, 0: ip not valid => need attach, 1: valid ip
-    bool   checkBandMask(const char* requiredURAT, const char* requiredBankMask);
+    bool   checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB);
     bool   checkCFUN();
-    bool   checkCOPS();
+    bool   checkCOPS(const char* requiredOperator, const char* requiredURAT);
+    bool   checkProfile(const uint8_t requiredProfile);
     bool   checkUrat(const char* requiredURAT);
     bool   checkURC(char* buffer);
     bool   doSIMcheck();
+    bool   setNetworkLEDState();
     bool   isValidIPv4(const char* str);
 
     GSMResponseTypes readResponse(char* outBuffer = NULL, size_t outMaxSize = 0, const char* prefix = NULL,
@@ -378,10 +424,6 @@ private:
 
     // The buffer used when reading from the modem. The space is allocated during init() via initBuffer().
     char* _inputBuffer;
-
-    char* _apn;
-    char* _apnUser;
-    char* _apnPass;
 
     // This flag keeps track if the next write is the continuation of the current command
     // A Carriage Return will reset this flag.

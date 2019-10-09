@@ -8,15 +8,16 @@ http://downloads.sodaq.net/package_sodaq_samd_index.json
 
 You should install (or update to) version 1.6.19 or higher.
 
-##  Configuration Menu
+## Configuration Menu
 
 After compiling the source code and uploading it to the board you will be able to configure the board through a menu.
 
 Just open the Arduino Serial Monitor (at 115200 baud, with line endings set to NL/CR) and you will get this menu:
 
 [In the case of SARA AFF or SFF]
-```
-** SODAQ - Universal Tracker - 1.0.1 **
+
+```Arduino
+** SODAQ - Universal Tracker - 1.0.2 **
 
  -> CPU reset by Software [64]
 
@@ -29,7 +30,6 @@ Commands:
 Settings:
 
 GPS
-  GPS (OFF=0 / ON=1)         (gps=): 1
   Fix Interval (min)         (fi=): 15
   Alt. Fix Interval (min)    (afi=): 0
   Alt. Fix From (HH)         (affh=): 0
@@ -66,8 +66,9 @@ Enter command:
 ```
 
 [In the case of SODAQ ONE]
-```
-** SODAQ - Universal Tracker - 1.0.0 **
+
+```Arduino
+** SODAQ - Universal Tracker - 1.0.2 **
 LoRa HWEUI: 0004A30B001FB4C1
  -> CPU reset by Software [64]
 
@@ -79,7 +80,6 @@ Commands:
 Settings:
 
 GPS
-  GPS (OFF=0 / ON=1)         (gps=): 1
   Fix Interval (min)         (fi=): 15
   Alt. Fix Interval (min)    (afi=): 0
   Alt. Fix From (HH)         (affh=): 0
@@ -116,8 +116,6 @@ Misc
 Enter command:
 ```
 
-
-
 Entering commands is just a matter of typing the command as given in brackets with the right value. For example:
 
 fi=5
@@ -125,15 +123,18 @@ fi=5
 Will set the time between the GPS fixes to 5 minutes.
 Setting fi=0 will disable the default fix interval.
 
-#### Sleep
+### Sleep
+
 After the startup the device by default willt be in deep sleep mode. In sleep it uses less than 50 uA. Using the RTC Timers it will wake up at the set intervals.
 
-#### Timers and Watchdog
+### Timers and Watchdog
+
 The application is based on the RTCTimer library. At startup the application tries to obtain a GPS fix until timeout. If no fix can be obtained initially the location will be set to 0,0. Once the first fix is obtained the RTC will be set and that fix location will be kept until the next proper fix.
 
 There is a system watchdog running in case the application hangs it will be restarted by the watchdog. (See library Sodaq\_wdt)
 
-#### GPS fixes
+### GPS fixes
+
 As seen in the configuration menu we allow for two different schedules for GPS fixes based on UTC time. The default could for instance be that we want a GPS fix every 30 minutes during the night, but during the day we want a fix every 5 minutes. In that case we configure the default to be 30 minutes, but the optional fix timer to be 5 minutes from 06:00 UTC to 18:00 UTC.
 
 The RTC library allows for two of such timers. In case the second Fix interval is set to 0 the second timer is simply ignored.
@@ -145,21 +146,20 @@ For redundancy we could configure a repeat count. The value of the repeat count 
 
 The Lora frame contains the following data. The minimum frame size is 21 bytes, the maximum frame size 51 bytes, depending on the number of coordinates we have configured to be sent.
 
-#### LoRa Connection
+### LoRa Connection
 
 The LoRa communication only starts if the keys are not 0 (0 is the default)
 If 'Retry conn.' is on, then in case the connection to the network is not successful (useful for OTAA), the application will retry to connect the next time there is a pending transmission.
 
-#### Temperature
+### Temperature
 
 The on-board accelerometer provides temperature delta with 1 degree Celsius resolution. It is not factory calibrated so the offset needs to be set in the application (command "temp" or it can be hardcoded in the code) for each board.
 
-#### On-the-move Functionality
+### On-the-move Functionality
 
 The firmware supports, except for the default and alternative fix intervals, a third fix interval that is dependent to movement: if the acceleration on any axis goes over (or below in the case of a negative axis) the acceleration set in Acceleration% parameter for over the set duration, the on-the-move fix interval becomes active until "Timeout" minutes have passed since the last movement detected.
 
-
-#### Message Frame content
+### Message Frame content
 
 Note: all values are little endian.
 
@@ -180,13 +180,9 @@ Note: all values are little endian.
 | Lat | long (4) |
 | Long | long(4) |
 
-
-
-#### Remote (over the air) re-configuration
+### Remote (over the air) re-configuration
 
 You can send the following configuration parameters back to the device (as part as the LoRaWAN class A communication protocol)
-
-
 
 | Description | Length |
 | --- | --- |
@@ -195,7 +191,6 @@ You can send the following configuration parameters back to the device (as part 
 | From (EPOCH) | long (4) |
 | To (EPOCH) | long (4) |
 | GPS fix timeout in seconds | uint16 (2) |
-
 
 ## License
 
