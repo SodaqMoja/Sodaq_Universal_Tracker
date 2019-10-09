@@ -17,7 +17,7 @@ Just open the Arduino Serial Monitor (at 115200 baud, with line endings set to N
 [In the case of SARA AFF or SFF]
 
 ```Arduino
-** SODAQ - Universal Tracker - 1.0.2 **
+** SODAQ - Universal Tracker - 1.0.3 **
 
  -> CPU reset by Software [64]
 
@@ -68,7 +68,7 @@ Enter command:
 [In the case of SODAQ ONE]
 
 ```Arduino
-** SODAQ - Universal Tracker - 1.0.2 **
+** SODAQ - Universal Tracker - 1.0.3 **
 LoRa HWEUI: 0004A30B001FB4C1
  -> CPU reset by Software [64]
 
