@@ -17,13 +17,14 @@ Just open the Arduino Serial Monitor (at 115200 baud, with line endings set to N
 [In the case of SARA AFF or SFF]
 
 ```Arduino
-** SODAQ - Universal Tracker - 1.0.2 **
+** SODAQ - Universal Tracker - 1.0.3 **
 
  -> CPU reset by Software [64]
 
 
 Commands:
   Show IMEI                                  (SI):
+  Show CCID                                  (SC):
   Show Module version                        (SV):
   Commit Settings                            (CS):
 
@@ -47,19 +48,20 @@ On-the-move Functionality
   Timeout (min)              (act=): 10
 
 Cellular
-  Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, LTE-M = 4, 2G/3G = 5)  (ntype=): 4
-  APN                        (apn=): m2m.internet
-  CDP                        (cdp=): 172.16.14.22
-  Force Operator             (opr=): 20408
+  Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, R4xx LTE-M = 4, R412 2G = 5, 2G/3G = 6)  (ntype=): 0
+  All Things Talk Token      (att=):
+  APN                        (apn=): nb.inetd.gdsp
+  Force Operator             (opr=): 20404
   CID                        (cid=): 1
+  MNO Profile                (mno=): 1
   APN user                   (apnu=):
   APN password               (apnp=):
-  Band                       (bnd=): 20
+  NB-IoT Band                (bnd=): 20
   Target IP                  (ip=): 0.0.0.0
   Target port                (prt=): 1
+  Response Timeout           (rxto=): 15
 
 Misc
-  Cayenne LPP (OFF=0 / ON=1) (cay=): 0
   Status LED (OFF=0 / ON=1)  (led=): 0
   Debug (OFF=0 / ON=1)       (dbg=): 0
 Enter command:
@@ -68,13 +70,14 @@ Enter command:
 [In the case of SODAQ ONE]
 
 ```Arduino
-** SODAQ - Universal Tracker - 1.0.2 **
+** SODAQ - Universal Tracker - 1.0.3 **
 LoRa HWEUI: 0004A30B001FB4C1
  -> CPU reset by Software [64]
 
 
 Commands:
   Reset DevAddr / DevEUI to the Hardware EUI (EUI):
+  Reset LoRa                                 (RESET):
   Commit Settings                            (CS):
 
 Settings:
