@@ -558,7 +558,10 @@ void initOnTheMove()
 void systemSleep()
 {
     MODEM_STREAM.flush();
+
+#ifndef ARDUINO_SODAQ_ONE
     network.setActive(false);
+#endif
 
     setLedColor(NONE);
     setGpsActive(false); // explicitly disable after resetting the pins
