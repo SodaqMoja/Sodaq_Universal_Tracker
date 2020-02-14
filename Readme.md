@@ -170,7 +170,7 @@ Note: all values are little endian.
 | --- | --- |
 | Epoch Timestamp | uint32 (4) |
 | Battery voltage (between 3 and 4.5 V) | uint8 (1) |
-| Board Temperature (degrees celcius) | int8 (1) |
+| Board Temperature (degrees celsius) | int8 (1) |
 | Lat | int32 (4) |
 | Long | int32 (4) |
 | Altitude (MSL in meters) | int16 (2) |
