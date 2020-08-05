@@ -33,6 +33,9 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef SODAQ_WDT_H_
 #define SODAQ_WDT_H_
 
+#include <Arduino.h>
+#include <stdint.h>
+
 #ifdef ARDUINO_ARCH_AVR
 
 #include <avr/wdt.h>
