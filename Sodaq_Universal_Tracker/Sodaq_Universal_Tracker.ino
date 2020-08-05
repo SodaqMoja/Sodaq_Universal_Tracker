@@ -570,9 +570,11 @@ void systemSleep()
     if (!params.getIsDebugOn() || ((long)&DEBUG_STREAM != (long)&SerialUSB)) {
         noInterrupts();
         if (!(sodaq_wdt_flag || minuteFlag)) {
+            SysTick->CTRL &= ~SysTick_CTRL_TICKINT_Msk;
             interrupts();
-
             __WFI(); // SAMD sleep
+            // Enable systick interrupt
+            SysTick->CTRL |= SysTick_CTRL_TICKINT_Msk;
         }
         interrupts();
     }
