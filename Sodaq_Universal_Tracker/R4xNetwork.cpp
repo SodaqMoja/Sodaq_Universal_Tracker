@@ -109,10 +109,7 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
         return true;
     }
 
-    char nbiot_bandmask[10];
-    itoa(BAND_TO_MASK(params.getBand()), nbiot_bandmask, 10);
-
-    success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), BAND_MASK_UNCHANGED, nbiot_bandmask);
+    success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
     if (!success) {
         r4x.off();
         sodaq_wdt_safe_delay(450);
@@ -120,7 +117,7 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), BAND_MASK_UNCHANGED, nbiot_bandmask);
+        success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
     }
     
     // Turn off PSM and eDRX

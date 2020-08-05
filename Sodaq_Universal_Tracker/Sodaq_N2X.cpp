@@ -162,7 +162,7 @@ bool Sodaq_N2X::off()
 }
 
 // Turns on and initializes the modem, then connects to the network and activates the data connection.
-bool Sodaq_N2X::connect(const char* apn, const char* cdp, const char* forceOperator, uint8_t band)
+bool Sodaq_N2X::connect(const char* apn, const char* cdp, const char* forceOperator, const char* band)
 {
     if (!on()) {
         return false;
@@ -436,6 +436,14 @@ bool Sodaq_N2X::setApn(const char* apn)
 }
 
 bool Sodaq_N2X::setBand(uint8_t band)
+{
+    print("AT+NBAND=");
+    println(band);
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N2X::setBand(const char* band)
 {
     print("AT+NBAND=");
     println(band);

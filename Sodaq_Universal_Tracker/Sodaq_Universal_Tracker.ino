@@ -114,7 +114,8 @@ Network network;
 
 #define DEFAULT_APN "nb.inetd.gdsp"
 #define DEFAULT_FORCE_OPERATOR "20404"
-#define DEFAULT_BAND 20
+// #define DEFAULT_BAND "524416" // R4X bandmask for band 8,20
+#define DEFAULT_BAND "8,20" // N2X select bands 8 and 20
 
 #define DEFAULT_APN_USER ""
 #define DEFAULT_APN_PASSWORD ""
@@ -1215,7 +1216,10 @@ void onConfigReset(void)
 #endif
 
 #ifdef DEFAULT_BAND
-    params._band = DEFAULT_BAND;
+    // fail if the defined string is larger than what is expected in the config
+    BUILD_BUG_ON(sizeof(DEFAULT_BAND) > sizeof(params._band));
+
+    strcpy(params._band, DEFAULT_BAND);
 #endif
 
 #ifdef DEFAULT_TARGET_IP

@@ -108,7 +108,7 @@ public:
     bool off();
 
     // Turns on and initializes the modem, then connects to the network and activates the data connection.
-    bool connect(const char* apn, const char* cdp, const char* forceOperator = 0, uint8_t band = 8);
+    bool connect(const char* apn, const char* cdp, const char* forceOperator = 0, const char* band = "8,20");
 
     // Disconnects the modem from the network.
     bool disconnect();
@@ -154,6 +154,7 @@ public:
     bool ping(const char* ip);
     void purgeAllResponsesRead();
     bool setApn(const char* apn);
+    bool setBand(const char* band);
     bool setBand(uint8_t band);
     bool setCdp(const char* cdp);
     bool setIndicationsActive(bool on);
