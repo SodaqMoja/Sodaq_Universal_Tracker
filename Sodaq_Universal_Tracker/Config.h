@@ -72,7 +72,7 @@ struct ConfigParams
     char _apnUser[32 + 1];
     char _apnPassword[32 + 1];
 
-    uint8_t _band;
+    char _band[36 + 1];
     uint8_t _rxTimeout;
 
     char _targetIP[16]; // 4x3 = 12, + 3 dots, + nullchar = 16
@@ -137,7 +137,7 @@ public:
     uint8_t getCID() const { return _cid; }
     uint8_t getMnoProfile() const { return _mnoProfile; }
 
-    uint8_t getBand() const { return _band; }
+    const char* getBand() const { return _band; }
     uint8_t getRXtimeout() const { return _rxTimeout; }
 
     const char* getTargetIP() const { return _targetIP; }

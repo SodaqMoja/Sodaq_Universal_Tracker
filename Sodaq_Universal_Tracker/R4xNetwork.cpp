@@ -50,6 +50,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #define consolePrintln(...) { if (_consoleStream) _consoleStream->println(__VA_ARGS__); }
 #endif
 
+#define MODEM_BAUD 115200
+
 // BEGIN NBiot DEFINES
 static Sodaq_R4X r4x;
 static Sodaq_SARA_R4XX_OnOff saraR4xxOnOff;
@@ -77,8 +79,7 @@ bool R4xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
         r4x.setDiag(_diagStream);
     }
 
-    modemStream.begin(r4x.getDefaultBaudrate());
-    r4x.init(&saraR4xxOnOff, modemStream, params.getCID());
+    r4x.init(&saraR4xxOnOff, modemStream, MODEM_BAUD);
 
     if (join == INIT_JOIN) {
         setActive(true, false);
@@ -88,7 +89,7 @@ bool R4xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitCons
         r4x.purgeAllResponsesRead();
     }
 
-    return r4x.isAlive();
+    return true;
 }
 
 /**
@@ -108,10 +109,7 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
         return true;
     }
 
-    char nbiot_bandmask[10];
-    itoa(BAND_TO_MASK(params.getBand()), nbiot_bandmask, 10);
-
-    success = r4x.connect(params.getApn(), _urat, params.getMnoProfile(), params.getForceOperator(), BAND_MASK_UNCHANGED, nbiot_bandmask);
+    success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
     if (!success) {
         r4x.off();
         sodaq_wdt_safe_delay(450);
@@ -119,7 +117,7 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        success = r4x.connect(params.getApn(), _urat, params.getMnoProfile(), params.getForceOperator(), BAND_MASK_UNCHANGED, nbiot_bandmask);
+        success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
     }
     
     // Turn off PSM and eDRX
@@ -183,7 +181,7 @@ void R4xNetwork::sleep() {}
 
 uint32_t R4xNetwork::getBaudRate()
 {
-    return r4x.getDefaultBaudrate();
+    return MODEM_BAUD;
 }
 
 bool R4xNetwork::getIMEI(char* buffer, size_t size)
