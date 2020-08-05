@@ -31,37 +31,28 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #include "Sodaq_R4X.h"
 #include "Sodaq_wdt.h"
-#include "time.h"
 
-#define DEBUG
+//#define DEBUG
 
-#define EPOCH_TIME_OFF             946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
-#define EPOCH_TIME_YEAR_OFF        100        /* years since 1900 */
-#define ATTACH_TIMEOUT             180000
-#define ATTACH_NEED_REBOOT         40000
-#define CGACT_TIMEOUT              150000
-#define COPS_TIMEOUT               180000
-#define ISCONNECTED_CSQ_TIMEOUT    10000
-#define REBOOT_DELAY               1250
-#define REBOOT_TIMEOUT             15000
-#define SOCKET_CLOSE_TIMEOUT       120000
-#define SOCKET_CONNECT_TIMEOUT     120000
-#define SOCKET_WRITE_TIMEOUT       120000
-#define UMQTT_TIMEOUT              60000
-#define POWER_OFF_DELAY            5000
+#define EPOCH_TIME_OFF          946684800  /* This is 1st January 2000, 00:00:00 in epoch time */
+#define ATTACH_NEED_REBOOT      40000
+#define REBOOT_DELAY            3500
+#define REBOOT_TIMEOUT          15000
+#define POWER_OFF_DELAY         5000
 
-#define SODAQ_GSM_TERMINATOR "\r\n"
-#define SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE 1024
-#define SODAQ_GSM_TERMINATOR_LEN (sizeof(SODAQ_GSM_TERMINATOR) - 1)
+#define SODAQ_R4X_DEFAULT_CID           1
 
+#define DEFAULT_CGACT_TIMEOUT           (150L * 1000)
+#define DEFAULT_COPS_TIMEOUT            (180L * 1000)
+#define DEFAULT_UMQTT_TIMEOUT           (60L * 1000)
+
+/**
+ * SARA R4X GPIO pin for network status indicator
+ */
 #define NETWORK_STATUS_GPIO_ID     16
 
 #define DEBUG_STR_ERROR            "[ERROR]: "
-#define STR_AT                     "AT"
-#define STR_RESPONSE_OK            "OK"
-#define STR_RESPONSE_ERROR         "ERROR"
-#define STR_RESPONSE_CME_ERROR     "+CME ERROR:"
-#define STR_RESPONSE_CMS_ERROR     "+CMS ERROR:"
+
 #define STR_RESPONSE_SOCKET_PROMPT '@'
 #define STR_RESPONSE_FILE_PROMPT   '>'
 
@@ -77,20 +68,19 @@ POSSIBILITY OF SUCH DAMAGE.
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+/**
+ * DIM is a define for the array size
+ */
+#define DIM(x)          (sizeof(x) / sizeof(x[0]))
+
 #ifdef DEBUG
-#define debugPrint(...)   { if (_diagStream) _diagStream->print(__VA_ARGS__); }
-#define debugPrintln(...) { if (_diagStream) _diagStream->println(__VA_ARGS__); }
+#define debugPrint(...)   { if (_diagPrint) _diagPrint->print(__VA_ARGS__); }
+#define debugPrintln(...) { if (_diagPrint) _diagPrint->println(__VA_ARGS__); }
 #warning "Debug mode is ON"
 #else
 #define debugPrint(...)
 #define debugPrintln(...)
 #endif
-
-#define CR '\r'
-#define LF '\n'
-
-#define SOCKET_FAIL -1
-#define NOW (uint32_t)millis()
 
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) { return (millis() - from) > nr_ms; }
@@ -108,74 +98,156 @@ static uint8_t httpRequestMapping[] = {
 * Main
 *****************************************************************************/
 
-Sodaq_R4X::Sodaq_R4X() :
-    _modemStream(0),
-    _diagStream(0),
-    _appendCommand(false),
-    _CSQtime(0),
-    _startOn(0)
+Sodaq_R4X::Sodaq_R4X() : Sodaq_Ublox()
 {
-    _isBufferInitialized = false;
-    _inputBuffer         = 0;
-    _inputBufferSize     = SODAQ_GSM_MODEM_DEFAULT_INPUT_BUFFER_SIZE;
-    _lastRSSI            = 0;
-    _minRSSI             = -113;  // dBm
-    _onoff               = 0;
+    _echoOff = false;
+    _hexMode = false;
+    _psm = false;
+    _upsv = false;
+
     _mqttLoginResult     = -1;
     _mqttPendingMessages = -1;
     _mqttSubscribeReason = -1;
-    _networkStatusLED = 0;
-    _pin                 = 0;
+    _networkStatusLED    = 0;
 
-    memset(_socketClosedBit,    1, sizeof(_socketClosedBit));
+    _pin = 0;
+    _cid = SODAQ_R4X_DEFAULT_CID;
+    _urat = SODAQ_R4X_DEFAULT_URAT;
+    _opr = SODAQ_R4X_AUTOMATIC_OPERATOR;
+    _mnoProfile = SIM_ICCID;
+    _bandMaskLTE = BAND_MASK_UNCHANGED;
+    _bandMaskNB = BAND_MASK_UNCHANGED;
+
+    _httpGetHeaderSize = 0;
+
+    /*
+     * Assume all socket are closed
+     */
+    for (size_t ix = 0; ix < DIM(_socketClosed); ix++) {
+        _socketClosed[ix] = true;
+    }
     memset(_socketPendingBytes, 0, sizeof(_socketPendingBytes));
+
+    _cgact_timeout = DEFAULT_CGACT_TIMEOUT;
+    _cops_timeout = DEFAULT_COPS_TIMEOUT;
+    _umqtt_timeout = DEFAULT_UMQTT_TIMEOUT;
 }
 
-// Initializes the modem instance. Sets the modem stream and the on-off power pins.
-void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
+// Initializes the modem instance. Sets the modem UART and the on-off power pins.
+void Sodaq_R4X::init(Sodaq_OnOffBee* onoff, Uart& uart, uint32_t baud)
 {
     debugPrintln("[init] started.");
 
     initBuffer(); // safe to call multiple times
 
-    setModemStream(stream);
+    initUART(uart, baud);
 
-    _onoff = onoff;
-    _cid   = cid;
+    setOnOff(onoff);
 }
 
-// Turns the modem on and returns true if successful.
+/**
+ * Turns the modem on and returns true if successful.
+ *
+ * With the _onoff we keep track of the power supply.
+ * The following situations can occur:
+ * 1. the modem is turned off from power (onoff power off)
+ * 2. the modem is on (onoff power on), and reacts to AT commands
+ * 3. the modem is on (onoff power on), but is in PSM (Power Safe Mode)
+ *    In this situation it wakes up after the first AT command. So a second
+ *    AT command is needed to be sure that it responds to it.
+ * 4. the modem is on (onoff power on), but it does not respond to AT
+ *    commands
+ */
 bool Sodaq_R4X::on()
 {
-    _startOn = millis();
-
-    if (!isOn() && _onoff) {
-        _onoff->on();
-    }
-
-    // wait for power up
-    bool timeout = true;
-    for (uint8_t i = 0; i < 10; i++) {
-        if (isAlive()) {
-            timeout = false;
-            break;
-        }
-    }
-
-    if (timeout) {
-        debugPrintln("Error: No Reply from Modem");
+    debugPrintln("[R4X on]");
+    if (!_onoff) {
+        debugPrintln("[R4X on] Missing _onoff");
         return false;
     }
 
-    // Extra read just to clear the input stream
-    readResponse(NULL, 0, NULL, 250);
+    bool need_power_toggle = false;
+    bool was_off = !isOn();
 
-    return isOn(); // this essentially means isOn() && isAlive()
+    _startOn = millis();
+
+    if (isOn()) {
+        if (isAlive(1)) {
+            return true;
+        }
+
+        /* Even if we think it is on, the modem could have gone into
+         * Power Safe Mode.
+         * In that case it needs to be toggled on.
+         */
+        need_power_toggle = true;
+    }
+
+    if (!isOn() || need_power_toggle) {
+        _onoff->on();
+    }
+
+    if (was_off) {
+        uint32_t baud = determineBaudRate(_baudRate);
+        if (baud == 0) {
+            debugPrintln("ERROR: No Reply from Modem");
+            return false;
+        }
+
+        // Extra read just to clear the input stream
+        readResponse(NULL, 0, NULL, 250);
+
+        if (_baudRate != baud) {
+            String cmd = String("AT+IPR=") + _baudRate;
+            if (execCommand(cmd)) {
+                _modemUART->begin(_baudRate);
+                /*
+                 * Wait at least 100 ms before issuing a new AT command
+                 */
+                sodaq_wdt_safe_delay(110);
+
+                if (!isAlive(9)) {
+                    debugPrintln("ERROR: No Reply from modem after baudrate switch");
+                    return false;
+                }
+            }
+            else {
+                return false;
+            }
+        }
+
+        execCommand("AT+CEDRXS=0");
+        if (_psm) {
+            execCommand("AT+CPSMS=1");
+        }
+        else {
+            execCommand("AT+CPSMS=0");
+        }
+
+        if (_upsv) {
+            execCommand("AT+UPSV=4");
+        }
+        else {
+            execCommand("AT+UPSV=0");
+        }
+
+        execCommand("AT+CPSMS?");
+        execCommand("AT+CEDRXS?");
+        execCommand("AT+UPSV?");
+    }
+
+    return isOn();
 }
 
 // Turns the modem off and returns true if successful.
 bool Sodaq_R4X::off()
 {
+    debugPrintln("[R4X off]");
+    if (!_onoff) {
+        debugPrintln("[R4X off] Missing _onoff");
+        return false;
+    }
+
     // Safety command to shutdown, response is ignored
     if (isOn()) {
         println("AT+CPWROFF");
@@ -184,18 +256,100 @@ bool Sodaq_R4X::off()
     }
 
     // No matter if it is on or off, turn it off.
-    if (_onoff) {
-        _onoff->off();
-    }
+    _onoff->off();
 
+    _echoOff = false;
+    _hexMode = false;
     _mqttLoginResult = -1;
 
+    debugPrintln("[R4X off, off]");
     return !isOn();
 }
 
-bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProfile,
-    const char* operatorSelect, const char* bandMaskLTE, const char* bandMaskNB)
+/**
+ * Get the nth valid baudrate
+ *
+ * The R4X supports 9600, 19200, 38400, 57600, 115200 (default and factory-
+ * programmed value), 230400, 460800
+ */
+uint32_t Sodaq_R4X::getNthValidBaudRate(size_t nth)
 {
+    uint32_t baud_rates[] = {
+            115200,
+            230400,
+            460800,
+            9600,
+            19200,
+            38400,
+            57600,
+    };
+    if (nth >= DIM(baud_rates)) {
+        return 0;
+    }
+    return baud_rates[nth];
+}
+
+void Sodaq_R4X::switchEchoOff()
+{
+    if (!_echoOff) {
+        // Suppress echoing
+        const size_t retry_count = 3;
+        for (size_t ix = 0; ix < retry_count; ix++) {
+            if (execCommand("ATE0")) {
+                _echoOff = true;
+                break;
+            }
+        }
+    }
+}
+
+/**
+ * Enable HEX mode
+ */
+bool Sodaq_R4X::enableHexMode()
+{
+    if (!_hexMode) {
+        const size_t retry_count = 3;
+        for (size_t ix = 0; ix < retry_count; ix++) {
+            if (execCommand("AT+UDCONF=1,1")) {
+                _hexMode = true;
+                break;
+            }
+        }
+        if (!_hexMode) {
+            debugPrintln("[R4X] ERROR: Failed to set HEX mode");
+        }
+    }
+    return _hexMode;
+}
+
+bool Sodaq_R4X::connect(const char* apn, const char* urat, MNOProfile mnoProfile,
+    const char* opr, const char* bandMaskLTE, const char* bandMaskNB)
+{
+    setApn(apn);
+    setUrat(urat);
+    if (opr == 0) {
+        opr = SODAQ_R4X_AUTOMATIC_OPERATOR;
+    }
+    setMnoProfile(mnoProfile);
+    setOperator(opr);
+    setBandMaskLTE(bandMaskLTE);
+    setBandMaskNB(bandMaskNB);
+    return connect();
+}
+
+bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
+{
+    return connect(apn, urat, SIM_ICCID, SODAQ_R4X_AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
+}
+
+bool Sodaq_R4X::connect()
+{
+    debugPrintln("[R4X connect]");
+
+    uint32_t start_ts = millis();
+    uint32_t remaining_timeout;
+
     if (!on()) {
         return false;
     }
@@ -210,69 +364,108 @@ bool Sodaq_R4X::connect(const char* apn, const char* uratSelect, uint8_t mnoProf
         return false;
     }
 
-    if (!execCommand("ATE0")) {
-        return false;
-    }
+    switchEchoOff();
 
     if (!checkCFUN()) {
         return false;
     }
 
-    if (!checkProfile(mnoProfile)) {
+    if (!checkMnoProfile(_mnoProfile)) {
         return false;
     }
 
-    if (!checkUrat(uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
+    if (_urat == 0) {
+        _urat = SODAQ_R4X_DEFAULT_URAT;
+    }
+    if (!checkUrat(_urat)) {
         return false;
     }
 
-    if (!checkBandMasks(bandMaskLTE, bandMaskNB)) {
+    if (!checkBandMasks(_bandMaskLTE, _bandMaskNB)) {
         return false;
     }
 
-    if (!checkCOPS(operatorSelect != 0 ? operatorSelect : AUTOMATIC_OPERATOR, uratSelect != 0 ? uratSelect : DEFAULT_URAT)) {
+    size_t cops_retry_count = 3;
+    bool cops_succeeded = false;
+    for (size_t i = 0; i < cops_retry_count && !is_timedout(start_ts, _connect_timeout); i++) {
+        if (checkCOPS(_opr, _urat)) {
+            cops_succeeded = true;
+            break;
+        }
+        sodaq_wdt_safe_delay(1000);
+    }
+    if (!cops_succeeded) {
         return false;
     }
 
-    int8_t i = checkApn(apn);
-    if (i < 0) {
+    if (is_timedout(start_ts, _connect_timeout)) {
+        return false;
+    }
+
+    if (!checkApn(_apn)) {
+        return false;
+    }
+    remaining_timeout = _connect_timeout - (millis() - start_ts);
+    if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
 
     uint32_t tm = millis();
 
-    if (!waitForSignalQuality()) {
+    if (!waitForSignalQuality(remaining_timeout)) {
+        return false;
+    }
+    if (is_timedout(start_ts, _connect_timeout)) {
         return false;
     }
 
-    if (i == 0 && !attachGprs(ATTACH_TIMEOUT)) {
+    remaining_timeout = _connect_timeout - (millis() - start_ts);
+    if (!attachGprs(remaining_timeout)) {
         return false;
     }
 
     if (millis() - tm > ATTACH_NEED_REBOOT) {
+        /* TODO
+         * It is a bit weird that this section is not looking at
+         * the _connect_timeout.
+         */
         reboot();
         
         if (!waitForSignalQuality()) {
             return false;
         }
 
-        if (!attachGprs(ATTACH_TIMEOUT)) {
+        if (!attachGprs()) {
             return false;
         }
     }
 
-    return doSIMcheck();
-}
+    execCommand("AT+CEDRXS=0");
+    if (_psm) {
+        execCommand("AT+CPSMS=1");
+    }
+    else {
+        execCommand("AT+CPSMS=0");
+    }
 
-bool Sodaq_R4X::connect(const char* apn, const char* urat, const char* bandMask)
-{
-    connect(apn, urat, SIM_ICCID, AUTOMATIC_OPERATOR, BAND_MASK_UNCHANGED, bandMask);
+    if (_upsv) {
+        execCommand("AT+UPSV=4");
+    }
+    else {
+        execCommand("AT+UPSV=0");
+    }
+
+    execCommand("AT+CPSMS?");
+    execCommand("AT+CEDRXS?");
+    execCommand("AT+UPSV?");
+
+    return doSIMcheck();
 }
 
 // Disconnects the modem from the network.
 bool Sodaq_R4X::disconnect()
 {
-    return execCommand("AT+CGATT=0", 40000);
+    return execCommand("AT+CGATT=0", _disconnect_timeout);
 }
 
 
@@ -282,13 +475,24 @@ bool Sodaq_R4X::disconnect()
 
 bool Sodaq_R4X::attachGprs(uint32_t timeout)
 {
+    debugPrintln("[R4X attachGprs]");
+
     uint32_t start = millis();
     uint32_t delay_count = 500;
+    bool retval = false;
 
     while (!is_timedout(start, timeout)) {
         if (isAttached()) {
-            if (isDefinedIP4() || (execCommand("AT+CGACT=1", CGACT_TIMEOUT) && isDefinedIP4())) {
-                return true;
+            /*
+             * Don't use more timeout than we're being told.
+             */
+            uint32_t my_timeout = _cgact_timeout;
+            if (my_timeout > timeout) {
+                my_timeout = timeout;
+            }
+            if (isDefinedIP4() || (execCommand("AT+CGACT=1", my_timeout) && isDefinedIP4())) {
+                retval = true;
+                break;
             }
         }
 
@@ -300,7 +504,10 @@ bool Sodaq_R4X::attachGprs(uint32_t timeout)
         }
     }
 
-    return false;
+    if (is_timedout(start, timeout)) {
+        debugPrintln("[R4X attachGprs] timed out");
+    }
+    return retval;
 }
 
 bool Sodaq_R4X::bandMasktoStr(const uint64_t bandMask, char* str, size_t size)
@@ -328,37 +535,10 @@ bool Sodaq_R4X::bandMasktoStr(const uint64_t bandMask, char* str, size_t size)
     return result;
 }
 
-// Gets Integrated Circuit Card ID.
-// Should be provided with a buffer of at least 21 bytes.
-// Returns true if successful.
-bool Sodaq_R4X::getCCID(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 20 + 1) {
-        return false;
-    }
-
-    println("AT+CCID");
-
-    return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
-}
-
-// Gets the International Mobile Subscriber Identity
-// Should be provided with a buffer of at least 21 bytes.
-// Returns true if successful.
-bool Sodaq_R4X::getIMSI(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 20 + 1) {
-        return false;
-    }
-
-    return (execCommand("AT+CIMI", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
-}
-
 bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
-    println("AT+COPS=3,2");
-
-    if (readResponse() != GSMResponseOK) {
+    // Set mode to numeric format
+    if (!execCommand("AT+COPS=3,2")) {
         return false;
     }
 
@@ -367,11 +547,13 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
     char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
-    uint32_t operatorCode = 0;
+    unsigned long operatorCode = 0;
 
-    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-
-        if (sscanf(responseBuffer, "%*d,%*d,\"%u\"", &operatorCode) == 1) {
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) &&
+        (strlen(responseBuffer) > 0)) {
+        // Expect something like this: 0,0,"dddddd"
+        // 5 or 6 characters long for numeric format (MCC/MNC codes)
+        if (sscanf(responseBuffer, "%*d,%*d,\"%lu\"", &operatorCode) == 1) {
             uint16_t divider = (operatorCode > 100000) ? 1000 : 100;
 
             *mcc = operatorCode / divider;
@@ -384,18 +566,35 @@ bool Sodaq_R4X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
     return false;
 }
 
-bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
+bool Sodaq_R4X::getOperatorInfoNumber(char* buffer, size_t size)
 {
-    if (size < 32 + 1) {
-         return false;
-    }
-
     buffer[0] = 0;
 
-    println("AT+COPS=3,0");
-
-    if (readResponse() != GSMResponseOK) {
+    // Set mode to numeric format
+    if (!execCommand("AT+COPS=3,2")) {
         return false;
+    }
+
+    return getOperatorInfo_low(buffer, size);
+}
+
+bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
+{
+    buffer[0] = 0;
+
+    // Set mode to long alphanumeric format
+    if (!execCommand("AT+COPS=3,0")) {
+        return false;
+    }
+
+    return getOperatorInfo_low(buffer, size);
+}
+
+bool Sodaq_R4X::getOperatorInfo_low(char* buffer, size_t size)
+{
+    // may be up to 24 characters long for long alphanumeric format
+    if (size < 24 + 1) {
+         return false;
     }
 
     println("AT+COPS?");
@@ -404,7 +603,7 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-
+        // Let's hope for the best, that we don't overflow the buffer
         if (sscanf(responseBuffer, "%*d,%*d,\"%[^\"]\"", buffer) == 1) {
             return true;
         }
@@ -415,9 +614,8 @@ bool Sodaq_R4X::getOperatorInfoString(char* buffer, size_t size)
 
 bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
 {
-    println("AT+CEREG=2");
-
-    if (readResponse() != GSMResponseOK) {
+    // 2: network registration and location information URC +CEREG: <stat>[,[<tac>],[<ci>],[<AcT>]] enabled
+    if (!execCommand("AT+CEREG=2")) {
         return false;
     }
 
@@ -427,8 +625,18 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", tac, cid, urat) == 3) {
-            switch(*urat) {
+        // Expect something like: 2,5,"EBF5","141E10D",7
+        // <tac> Two bytes tracking area code in hexadecimal format
+        // <ci> Four bytes E-UTRAN cell-id in hexadecimal format
+        // <AcT> 7: E-UTRAN, 8: E-UTRAN EC-GSM-IoT, 9: E-UTRAN Cat NB1
+        short unsigned int num1;
+        unsigned int num2;
+        short int num3;
+        if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\",%hi", &num1, &num2, &num3) == 3) {
+            *tac = num1;
+            *cid = num2;
+            *urat = num3;
+            switch (*urat) {
                 case 7:
                 case 8: *urat = 7; break;
                 case 9: *urat = 8; break;
@@ -449,7 +657,10 @@ bool Sodaq_R4X::getCellInfo(uint16_t* tac, uint32_t* cid, uint16_t* urat)
             memset(responseBuffer, 0, sizeof(responseBuffer));
 
             if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
-                if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", tac, cid) == 2) {
+
+                if (sscanf(responseBuffer, "2,%*d,\"%hx\",\"%x\"", &num1, &num2) == 2) {
+                    *tac = num1;
+                    *cid = num2;
                     *urat = 9;
                     return true;
                 }
@@ -482,24 +693,6 @@ bool Sodaq_R4X::getEpoch(uint32_t* epoch)
     return false;
 }
 
-bool Sodaq_R4X::getFirmwareVersion(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 30 + 1) {
-        return false;
-    }
-
-    return execCommand("AT+CGMR", DEFAULT_READ_MS, buffer, size);
-}
-
-bool Sodaq_R4X::getFirmwareRevision(char* buffer, size_t size)
-{
-    if (buffer == NULL || size < 30 + 1) {
-        return false;
-    }
-
-    return execCommand("ATI9", DEFAULT_READ_MS, buffer, size);
-}
-
 // Gets International Mobile Equipment Identity.
 // Should be provided with a buffer of at least 16 bytes.
 // Returns true if successful.
@@ -509,7 +702,7 @@ bool Sodaq_R4X::getIMEI(char* buffer, size_t size)
         return false;
     }
 
-    return (execCommand("AT+CGSN", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
+    return (execCommand("AT+CGSN", buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
 }
 
 SimStatuses Sodaq_R4X::getSimStatus()
@@ -531,19 +724,6 @@ SimStatuses Sodaq_R4X::getSimStatus()
     return SimMissing;
 }
 
-bool Sodaq_R4X::execCommand(const char* command, uint32_t timeout, char* buffer, size_t size)
-{
-    println(command);
-
-    return (readResponse(buffer, size, NULL, timeout) == GSMResponseOK);
-}
-
-// Returns true if the modem replies to "AT" commands without timing out.
-bool Sodaq_R4X::isAlive()
-{
-    return execCommand(STR_AT, 450);
-}
-
 // Returns true if the modem is attached to the network and has an activated data connection.
 bool Sodaq_R4X::isAttached()
 {
@@ -558,19 +738,30 @@ bool Sodaq_R4X::isAttached()
     return (strcmp(buffer, "1") == 0);
 }
 
-// Returns true if the modem is connected to the network and IP address is not 0.0.0.0.
+/**
+ * Is the modem still connected?
+ *
+ * Return true if the modem is connected to the network and IP address is not 0.0.0.0.
+ */
 bool Sodaq_R4X::isConnected()
 {
-    return isOn() && isAttached() && waitForSignalQuality(ISCONNECTED_CSQ_TIMEOUT) && isDefinedIP4() ;
+    debugPrintln("[R4X isConnected]");
+    /* TODO
+     * There are three calls, each could timeout.
+     * Why do we want to wait for CSQ here?
+     */
+    return isAttached() && waitForSignalQuality(10000) && isDefinedIP4();
 }
 
 // Returns true if defined IP4 address is not 0.0.0.0.
 bool Sodaq_R4X::isDefinedIP4()
 {
-    println("AT+CGDCONT?");
-
     char buffer[256];
 
+    // FIXME Use AT+CGPADDR=1. That is, if we are sure we use cid (context identifier) 1.
+    println("AT+CGDCONT?");
+    // Expect response like this (already skipped "+CGDCONT: "):
+    //     1,"IP","data.mono","10.140.4.195",0,0,0,0
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
         return false;
     }
@@ -596,7 +787,7 @@ void Sodaq_R4X::purgeAllResponsesRead()
     while ((readResponse(NULL, 0, NULL, 1000) != GSMResponseTimeout) && !is_timedout(start, 2000)) {}
 }
 
-bool Sodaq_R4X::setApn(const char* apn)
+bool Sodaq_R4X::loadApn(const char* apn)
 {
     print("AT+CGDCONT=");
     print(_cid);
@@ -625,7 +816,7 @@ void Sodaq_R4X::setPin(const char * pin)
 bool Sodaq_R4X::setRadioActive(bool on)
 {
     print("AT+CFUN=");
-    println(on ? "1" : "0");
+    println(on ? '1' : '0');
 
     return (readResponse() == GSMResponseOK);
 }
@@ -638,65 +829,14 @@ bool Sodaq_R4X::setVerboseErrors(bool on)
     return (readResponse() == GSMResponseOK);
 }
 
-
-/******************************************************************************
-* RSSI and CSQ
-*****************************************************************************/
-
-/*
-    The range is the following:
-    0: -113 dBm or less
-    1: -111 dBm
-    2..30: from -109 to -53 dBm with 2 dBm steps
-    31: -51 dBm or greater
-    99: not known or not detectable or currently not available
-*/
-int8_t Sodaq_R4X::convertCSQ2RSSI(uint8_t csq) const
-{
-    return -113 + 2 * csq;
-}
-
-uint8_t Sodaq_R4X::convertRSSI2CSQ(int8_t rssi) const
-{
-    return (rssi + 113) / 2;
-}
-
-// Gets the Received Signal Strength Indication in dBm and Bit Error Rate.
-// Returns true if successful.
-bool Sodaq_R4X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
-{
-    static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
-
-    println("AT+CSQ");
-
-    char buffer[256];
-
-    if (readResponse(buffer, sizeof(buffer), "+CSQ: ") != GSMResponseOK) {
-        return false;
-    }
-
-    int csqRaw;
-    int berRaw;
-
-    if (sscanf(buffer, "%d,%d", &csqRaw, &berRaw) != 2) {
-        return false;
-    }
-
-    *rssi = ((csqRaw == 99) ? 0 : convertCSQ2RSSI(csqRaw));
-    *ber  = ((berRaw == 99 || static_cast<size_t>(berRaw) >= sizeof(berValues)) ? 0 : berValues[berRaw]);
-
-    return true;
-}
-
-
 /******************************************************************************
 * Sockets
 *****************************************************************************/
 
 bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
 {
-    socketFlush(socketID);
-    
+    (void)socketFlush(socketID);
+
     print("AT+USOCL=");
     print(socketID);
 
@@ -707,28 +847,16 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
         println();
     }
 
-    _socketClosedBit   [socketID] = true;
+    _socketClosed[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
-    if (readResponse(NULL, 0, NULL, SOCKET_CLOSE_TIMEOUT) != GSMResponseOK) {
+    if (readResponse(NULL, 0, NULL, _socket_close_timeout) != GSMResponseOK) {
+        (void)execCommand(String("AT+USOCTL=") + socketID + ",1");
+        (void)execCommand("AT+USOER");
         return false;
     }
 
     return true;
-}
-
-int Sodaq_R4X::socketCloseAll() {
-
-    int closedCount = 0;
-
-    for (uint8_t i = 0; i < SOCKET_COUNT; i++) {
-        if (socketClose(i, false)) {
-            closedCount++;
-        }
-    }
-
-    // return the number of sockets we closed
-    return closedCount;
 }
 
 bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort)
@@ -740,13 +868,19 @@ bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const ui
     print("\",");
     println(remotePort);
 
-    bool b = readResponse(NULL, 0, NULL, SOCKET_CONNECT_TIMEOUT) == GSMResponseOK;
+    bool b = readResponse(NULL, 0, NULL, _socket_connect_timeout) == GSMResponseOK;
 
-    _socketClosedBit  [socketID] = !b;
+    _socketClosed[socketID] = !b;
 
     return b;
 }
 
+/**
+ * Create a new socket
+ *
+ * @returns 0..(SOCKET_COUNT-1) for a successful creation
+ * @returns -1 if creation failed
+ */
 int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
 {
     print("AT+USOCR=");
@@ -763,34 +897,46 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
     char buffer[32];
 
     if (readResponse(buffer, sizeof(buffer), "+USOCR: ") != GSMResponseOK) {
-        return SOCKET_FAIL;
+        return -1;
     }
 
     int socketID;
 
-    if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SOCKET_COUNT)) {
-        return SOCKET_FAIL;
+    if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SODAQ_UBLOX_SOCKET_COUNT)) {
+        return -1;
     }
 
-    _socketClosedBit   [socketID] = true;
+    /* Start with socket closed
+     */
+    _socketClosed[socketID] = true;
     _socketPendingBytes[socketID] = 0;
 
     return socketID;
 }
 
+/**
+ * Flush the bytes in the send buffer of a TCP socket
+ *
+ * \returns true all bytes flushed
+ * \returns true if socket closed
+ * \returns false if wrong answer from AT+USOCTL
+ * \returns false if timed out
+ */
 bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
 {
     uint32_t start = millis();
 
-    while (isAlive() && (!is_timedout(start, timeout)) && (!_socketClosedBit[socketID])) {
+    while (!is_timedout(start, timeout) && !_socketClosed[socketID]) {
         print("AT+USOCTL=");
         print(socketID);
         println(",11");
         
         char buffer[32];
-
         if (readResponse(buffer, sizeof(buffer), "+USOCTL: ") != GSMResponseOK) {
-            if (_socketClosedBit[socketID]) {
+            /* We did not get an OK.
+             * If the socket was closed then assume the flush went fine.
+             */
+            if (_socketClosed[socketID]) {
                 return true;
             }
             else {
@@ -805,45 +951,50 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
         else if (pendingBytes == 0){
             return true;
         }
-        
-        sodaq_wdt_safe_delay(300);
+
+        /*
+         * How often do we want to repeat?
+         */
+        sodaq_wdt_safe_delay(150);
     }
-    
-    if (_socketClosedBit[socketID]) {
+
+    /* FIXME In case the socket is closed or the modem did not respond anymore
+     * then assume the flush went fine.
+     */
+    if (_socketClosed[socketID]) {
         return true;
     }
 
     return false;
 }
 
-size_t Sodaq_R4X::socketGetPendingBytes(uint8_t socketID)
-{
-    return _socketPendingBytes[socketID];
-}
-
-bool Sodaq_R4X::socketHasPendingBytes(uint8_t socketID)
-{
-    return socketGetPendingBytes(socketID) > 0;
-}
-
 bool Sodaq_R4X::socketIsClosed(uint8_t socketID)
 {
-    return _socketClosedBit[socketID];
+    return _socketClosed[socketID];
 }
 
+/*
+ * Read a buffer from a TCP socket
+ */
 size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
-        debugPrintln("Reading from without available bytes!");
+        debugPrintln("[R4X] ERROR: Reading from socket without bytes available");
         return 0;
     }
 
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
 
+    /* Determine the size we can handle.
+     * This could mean we read less bytes then there are available.
+     * TODO We can only handle SODAQ_R4X_MAX_SOCKET_BUFFER / 2 (2 chars per byte).
+     */
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
-    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
+    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];      // WARNING! Large allocation on stack
     int    retSocketID;
     size_t retSize;
 
@@ -860,7 +1011,9 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
-    if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
+    /* TODO Maybe it is better to check socketID == retSocketID
+     */
+    if ((retSocketID < 0) || (retSocketID >= SODAQ_UBLOX_SOCKET_COUNT)) {
         return 0;
     }
 
@@ -875,19 +1028,30 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
     return retSize;
 }
 
+/**
+ * Read a buffer from a UDP socket
+ */
 size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 {
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
-        debugPrintln("Reading from without available bytes!");
+        debugPrintln("[R4X] ERROR: Reading from socket without bytes available");
         return 0;
     }
 
-    execCommand("AT+UDCONF=1,1");
+    /* Enable HEX mode
+     */
+    if (!enableHexMode()) {
+        return 0;
+    }
 
+    /* Determine the size we can handle.
+     * This could mean we read less bytes then there are available.
+     * TODO We can only handle SODAQ_R4X_MAX_SOCKET_BUFFER / 2 (2 chars per byte).
+     */
     size = min(size, min(SODAQ_R4X_MAX_SOCKET_BUFFER, _socketPendingBytes[socketID]));
 
-    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];
+    char   outBuffer[SODAQ_R4X_MAX_SOCKET_BUFFER];      // WARNING! Large allocation on stack
     int    retSocketID;
     size_t retSize;
 
@@ -904,7 +1068,9 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
         return 0;
     }
 
-    if ((retSocketID < 0) || (retSocketID >= SOCKET_COUNT)) {
+    /* TODO Maybe it is better to check socketID == retSocketID
+     */
+    if ((retSocketID < 0) || (retSocketID >= SODAQ_UBLOX_SOCKET_COUNT)) {
         return 0;
     }
 
@@ -919,15 +1085,26 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
     return retSize;
 }
 
+/**
+ * Write a buffer to a UDP socket
+ */
 size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort,
                              const uint8_t* buffer, size_t size)
 {
     if (size > SODAQ_MAX_SEND_MESSAGE_SIZE) {
-        debugPrintln("Message exceeded maximum size!");
+        debugPrintln("[R4X] ERROR: Message exceeded maximum size!");
         return 0;
     }
 
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
+
+    /* Show the socket error
+     * Just is just for diagnostics. Somehow we always see error 65
+     * after doing a USOST. 65 is EEOF - End of file.
+     */
+    (void)execCommand(String("AT+USOCTL=") + socketID + ",1");
 
     print("AT+USOST=");
     print(socketID);
@@ -947,15 +1124,14 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
     println('"');
 
     char outBuffer[64];
-
-    if (readResponse(outBuffer, sizeof(outBuffer), "+USOST: ", SOCKET_WRITE_TIMEOUT) != GSMResponseOK) {
+    if (readResponse(outBuffer, sizeof(outBuffer), "+USOST: ", _socket_write_timeout) != GSMResponseOK) {
         return 0;
     }
 
     int retSocketID;
     int sentLength;
-
-    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
+    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID != socketID)) {
+        /* Wrong socket or unexpected other result */
         return 0;
     }
 
@@ -1000,12 +1176,17 @@ bool Sodaq_R4X::socketWaitForClose(uint8_t socketID, uint32_t timeout)
     return socketIsClosed(socketID);
 }
 
+/**
+ * Are there pending bytes on the TCP socket?
+ */
 bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
 {
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
 
+    /* Query the modem again if there are pending bytes.
+     */
     uint32_t startTime = millis();
 
     while (!socketHasPendingBytes(socketID) && !socketIsClosed(socketID) && !is_timedout(startTime, timeout)) {
@@ -1014,11 +1195,9 @@ bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
         println(",0");
 
         char buffer[128];
-
         if (readResponse(buffer, sizeof(buffer), "+USORD: ") == GSMResponseOK) {
             int retSocketID;
             int receiveSize;
-
             if (sscanf(buffer, "%d,%d", &retSocketID, &receiveSize) == 2) {
                 _socketPendingBytes[retSocketID] = receiveSize;
             }
@@ -1030,12 +1209,17 @@ bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
     return socketHasPendingBytes(socketID);
 }
 
+/**
+ * Are there pending bytes on the UDP socket?
+ */
 bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 {
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
 
+    /* Query the modem again if there are pending bytes.
+     */
     uint32_t startTime = millis();
 
     while (!socketHasPendingBytes(socketID) && !is_timedout(startTime, timeout)) {
@@ -1044,11 +1228,9 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
         println(",0");
 
         char buffer[128];
-
         if (readResponse(buffer, sizeof(buffer), "+USORF: ") == GSMResponseOK) {
             int retSocketID;
             int receiveSize;
-
             if (sscanf(buffer, "%d,%d", &retSocketID, &receiveSize) == 2) {
                 _socketPendingBytes[retSocketID] = receiveSize;
             }
@@ -1060,16 +1242,23 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
     return socketHasPendingBytes(socketID);
 }
 
+/**
+ * Write a buffer to a TCP socket
+ */
 size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size)
 {
-    execCommand("AT+UDCONF=1,1");
+    if (!enableHexMode()) {
+        return 0;
+    }
 
     print("AT+USOWR=");
     print(socketID);
     print(",");
     println(size);
 
-    if (readResponse() != GSMResponsePrompt) {
+    /* Wait for the prompt. It should come in immediately.
+     */
+    if (!waitForSocketPrompt(100)) {
         return 0;
     }
 
@@ -1080,19 +1269,20 @@ size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t si
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(HIGH_NIBBLE(buffer[i]))));
         print(static_cast<char>(NIBBLE_TO_HEX_CHAR(LOW_NIBBLE(buffer[i]))));
     }
-
-    debugPrintln();
+    /* Indicate that we need a new diag prolog (">>") next time we send a command
+     */
+    dbprintln();
 
     char outBuffer[64];
-
-    if (readResponse(outBuffer, sizeof(outBuffer), "+USOWR: ", SOCKET_WRITE_TIMEOUT) != GSMResponseOK) {
+    if (readResponse(outBuffer, sizeof(outBuffer), "+USOWR: ", _socket_write_timeout) != GSMResponseOK) {
         return 0;
     }
 
     int retSocketID;
     int sentLength;
-
-    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
+    if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) ||
+        (retSocketID < 0) ||
+        (retSocketID > SODAQ_UBLOX_SOCKET_COUNT)) {
         return 0;
     }
 
@@ -1143,27 +1333,23 @@ bool Sodaq_R4X::mqttLogout()
 
     println("AT+UMQTTC=0");
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("0,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", _umqtt_timeout) == GSMResponseOK) && startsWith("0,1", buffer);
 }
 
 void Sodaq_R4X::mqttLoop()
 {
     sodaq_wdt_reset();
-    if (!_modemStream->available()) {
-        return;
+    if (_modemUART->available()) {
+
+        int count = readLn(250);        // 250ms, how many bytes at which baudrate?
+
+        if (count > 0) {
+            debugPrint("<< ");
+            debugPrintln(getInputBuffer());
+
+            checkURC(getInputBuffer());
+        }
     }
-
-    int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
-    sodaq_wdt_reset();
-
-    if (count <= 0) {
-        return;
-    }
-
-    debugPrint("<< ");
-    debugPrintln(_inputBuffer);
-
-    checkURC(_inputBuffer);
 }
 
 bool Sodaq_R4X::mqttPing(const char* server)
@@ -1174,7 +1360,7 @@ bool Sodaq_R4X::mqttPing(const char* server)
     print(server);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("8,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", _umqtt_timeout) == GSMResponseOK) && startsWith("8,1", buffer);
 }
 
 bool Sodaq_R4X::mqttPublish(const char* topic, const uint8_t* msg, size_t size, uint8_t qos, uint8_t retain, bool useHEX)
@@ -1204,7 +1390,7 @@ bool Sodaq_R4X::mqttPublish(const char* topic, const uint8_t* msg, size_t size, 
 
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("2,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", _umqtt_timeout) == GSMResponseOK) && startsWith("2,1", buffer);
 }
 
 // returns number of read messages
@@ -1222,7 +1408,7 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
 
     uint32_t startTime = millis();
 
-    if ((readResponse(bufferIn, sizeof(bufferIn), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("6,1", bufferIn)) {
+    if ((readResponse(bufferIn, sizeof(bufferIn), "+UMQTTC: ", _umqtt_timeout) != GSMResponseOK) || !startsWith("6,1", bufferIn)) {
         return 0;
     }
 
@@ -1241,15 +1427,15 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
     char* messageStart = 0;
 
     while (messages < _mqttPendingMessages && !is_timedout(startTime, timeout)) {
-        int count = readLn(_inputBuffer, _inputBufferSize, 250);
+        int count = readLn(250);
         sodaq_wdt_reset();
 
         if (count <= 0) {
             continue;
         }
 
-        bool isTopic = startsWith("Topic:", _inputBuffer);
-        bool isMessage = startsWith("Msg:", _inputBuffer);
+        bool isTopic = startsWith("Topic:", getInputBuffer());
+        bool isMessage = startsWith("Msg:", getInputBuffer());
 
         if (isTopic || isMessage) {
             // init publish msg vars when seeing a topic (topic comes first)
@@ -1274,7 +1460,7 @@ uint16_t Sodaq_R4X::mqttReadMessages(char* buffer, size_t size, uint32_t timeout
                 count = size - 1 - outSize;
             }
 
-            memcpy(buffer + outSize, _inputBuffer + headerSize, count);
+            memcpy(buffer + outSize, getInputBuffer() + headerSize, count);
             if (isTopic) {
                 topicStart = buffer + outSize;
             }
@@ -1312,7 +1498,7 @@ bool Sodaq_R4X::mqttSetAuth(const char* name, const char* pw)
     print(pw);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("4,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("4,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetCleanSession(bool enabled)
@@ -1322,7 +1508,7 @@ bool Sodaq_R4X::mqttSetCleanSession(bool enabled)
     print("AT+UMQTT=12,");
     println(enabled ? '1' : '0');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("12,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("12,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetClientId(const char* id)
@@ -1333,7 +1519,7 @@ bool Sodaq_R4X::mqttSetClientId(const char* id)
     print(id);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("0,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("0,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetInactivityTimeout(uint16_t timeout)
@@ -1343,7 +1529,7 @@ bool Sodaq_R4X::mqttSetInactivityTimeout(uint16_t timeout)
     print("AT+UMQTT=10,");
     println(timeout);
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("10,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("10,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetLocalPort(uint16_t port)
@@ -1353,7 +1539,7 @@ bool Sodaq_R4X::mqttSetLocalPort(uint16_t port)
     print("AT+UMQTT=1,");
     println(port);
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("1,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("1,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetSecureOption(bool enabled, int8_t profile)
@@ -1368,7 +1554,7 @@ bool Sodaq_R4X::mqttSetSecureOption(bool enabled, int8_t profile)
         println(profile);
     }
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("11,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("11,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetServer(const char* server, uint16_t port)
@@ -1386,7 +1572,7 @@ bool Sodaq_R4X::mqttSetServer(const char* server, uint16_t port)
         println('"');
     }
 
-  return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("2,1", buffer);
+  return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("2,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSetServerIP(const char* ip, uint16_t port)
@@ -1404,7 +1590,7 @@ bool Sodaq_R4X::mqttSetServerIP(const char* ip, uint16_t port)
         println('"');
     }
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("3,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTT: ", _umqtt_timeout) == GSMResponseOK) && startsWith("3,1", buffer);
 }
 
 bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos, uint32_t timeout)
@@ -1421,7 +1607,7 @@ bool Sodaq_R4X::mqttSubscribe(const char* filter, uint8_t qos, uint32_t timeout)
 
     uint32_t startTime = millis();
 
-    if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) != GSMResponseOK) || !startsWith("4,1", buffer)) {
+    if ((readResponse(buffer, sizeof(buffer), "+UMQTTC: ", _umqtt_timeout) != GSMResponseOK) || !startsWith("4,1", buffer)) {
         return false;
     }
 
@@ -1441,7 +1627,7 @@ bool Sodaq_R4X::mqttUnsubscribe(const char* filter)
     print(filter);
     println('"');
 
-    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", UMQTT_TIMEOUT) == GSMResponseOK) && startsWith("5,1", buffer);
+    return (readResponse(buffer, sizeof(buffer), "+UMQTTC: ", _umqtt_timeout) == GSMResponseOK) && startsWith("5,1", buffer);
 }
 
 void Sodaq_R4X::mqttSetPublishHandler(PublishHandlerPtr handler)
@@ -1929,24 +2115,28 @@ size_t Sodaq_R4X::readFile(const char* filename, uint8_t* buffer, size_t size)
     // to be able to also read terminator characters within files
     char checkChar = 0;
 
-    // reply identifier
-    size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
-    if (len == 0 || strstr(_inputBuffer, "+URDFILE:") == NULL) {
+    char reply_buffer[256];       // Filenames can be 248 chars long
+
+    // Read reply identifier +URDFILE:
+    size_t len = readBytesUntil(' ', reply_buffer, sizeof(reply_buffer));
+    if (len == 0 || strstr(reply_buffer, "+URDFILE:") == NULL) {
         debugPrintln(DEBUG_STR_ERROR "+URDFILE literal is missing!");
         return 0;
     }
 
-    // filename
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    // Read filename
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
     // TODO check filename after removing quotes and escaping chars
 
-    // filesize
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    // Read filesize
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
     filesize = 0; // reset the var before reading from reply string
-    if (sscanf(_inputBuffer, "%lu", &filesize) != 1) {
+    if (sscanf(reply_buffer, "%lu", &filesize) != 1) {
         debugPrintln(DEBUG_STR_ERROR "Could not parse the file size!");
         return 0;
     }
+    /* Filesize was already checked. Repeat it once more.
+     */
     if (filesize == 0 || filesize > size) {
         debugPrintln(DEBUG_STR_ERROR "Size error!");
         return 0;
@@ -1992,23 +2182,25 @@ size_t Sodaq_R4X::readFilePartial(const char* filename, uint8_t* buffer, size_t 
     print(',');
     println(size);
 
-    // reply identifier
+    char reply_buffer[256];       // Filenames can be 248 chars long
+
+    // Read reply identifier
     //   +URDBLOCK: http_last_response_0,86,"..."
     // where 86 is an example of the size
-    size_t len = readBytesUntil(' ', _inputBuffer, _inputBufferSize);
-    if (len == 0 || strstr(_inputBuffer, "+URDBLOCK:") == NULL) {
+    size_t len = readBytesUntil(' ', reply_buffer, sizeof(reply_buffer));
+    if (len == 0 || strstr(reply_buffer, "+URDBLOCK:") == NULL) {
         debugPrintln(DEBUG_STR_ERROR "+URDBLOCK literal is missing!");
         return 0;
     }
 
     // skip filename
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
-    // TODO check filename. Note, there are no quotes
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
+    // TODO check filename. Note, there are no quotes. ??Manual example has qotes
 
     // read the number of bytes
-    len = readBytesUntil(',', _inputBuffer, _inputBufferSize);
+    len = readBytesUntil(',', reply_buffer, sizeof(reply_buffer));
     uint32_t blocksize = 0; // reset the var before reading from reply string
-    if (sscanf(_inputBuffer, "%lu", &blocksize) != 1) {
+    if (sscanf(reply_buffer, "%lu", &blocksize) != 1) {
         debugPrintln(DEBUG_STR_ERROR "Could not parse the block size!");
         return 0;
     }
@@ -2051,7 +2243,7 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
     print("\",");
     println(size);
 
-    if (readResponse() != GSMResponsePrompt) {
+    if (waitForFilePrompt(250)) {
         return false;
     }
 
@@ -2067,33 +2259,33 @@ bool Sodaq_R4X::writeFile(const char* filename, const uint8_t* buffer, size_t si
 * Private
 *****************************************************************************/
 
-int8_t Sodaq_R4X::checkApn(const char* requiredAPN)
+/**
+ * Check APN
+ *
+ */
+bool Sodaq_R4X::checkApn(const char* requiredAPN)
 {
-    println("AT+CGDCONT?");
-
     char buffer[256];
-
+    println("AT+CGDCONT?");
+    // Expect response like this (already skipped "+CGDCONT: "):
+    //     1,"IP","data.mono","10.140.4.195",0,0,0,0
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
-        return -1;
+        return false;
     }
 
     if (strncmp(buffer, "1,\"IP\"", 6) == 0 && strncmp(buffer + 6, ",\"\"", 3) != 0) {
         char apn[64];
-        char ip[32];
 
-        if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) { return -1; }
+        if (sscanf(buffer + 6, ",\"%[^\"]\"", apn) != 1) {
+            return false;
+        }
 
         if (strcmp(apn, requiredAPN) == 0) {
-            if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { 
-                return 1; 
-            }
-            else {
-                return 0;
-            }
+            return true;
         }
     }
 
-    return setApn(requiredAPN) ? 0 : -1;
+    return loadApn(requiredAPN);
 }
 
 bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
@@ -2125,24 +2317,30 @@ bool Sodaq_R4X::checkBandMasks(const char* bandMaskLTE, const char* bandMaskNB)
         return true;
     }
 
-    print("AT+UBANDMASK=");
-    if (setLTEMask) {
-        print("0,");
-        print(bandMaskLTE);
-        if (setNBMask) {
-            print(",");
-        }
-    }
-    if (setNBMask) {
-        print("1,");
-        print(bandMaskNB);
-    }
-    println();
-
-    if (readResponse() != GSMResponseOK) {
+    if (!setRadioActive(false)) {
         return false;
     }
 
+    if (setLTEMask) {
+        print("AT+UBANDMASK=");
+        print("0,");
+        println(bandMaskLTE);
+        if (readResponse() != GSMResponseOK) {
+            return false;
+        }
+    }
+
+    if (setNBMask) {
+        print("AT+UBANDMASK=");
+        print("1,");
+        println(bandMaskNB);
+        if (readResponse() != GSMResponseOK) {
+            return false;
+        }
+    }
+
+    /* This saves the current settings to the NVM, then it reboots the module
+     */
     reboot();
 
     return true;
@@ -2164,12 +2362,12 @@ bool Sodaq_R4X::checkCFUN()
 bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT)
 {
     // If auto operator and not NB1, always send the command
-    if ((strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) && (strcmp(requiredURAT, SODAQ_R4X_NBIOT_URAT) != 0)){
-        return execCommand("AT+COPS=0,2", COPS_TIMEOUT);
+    if ((strcmp(requiredOperator, SODAQ_R4X_AUTOMATIC_OPERATOR) == 0) &&
+            (strcmp(requiredURAT, SODAQ_R4X_NBIOT_URAT) != 0)){
+        return execCommand("AT+COPS=0,2", _cops_timeout);
     }
 
     println("AT+COPS=3,2");
-
     if (readResponse() != GSMResponseOK) {
         return false;
     }
@@ -2178,14 +2376,15 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT
 
     char buffer[64];
 
-    if (readResponse(buffer, sizeof(buffer), "+COPS: ", COPS_TIMEOUT) != GSMResponseOK) {
+    if (readResponse(buffer, sizeof(buffer), "+COPS: ", _cops_timeout) != GSMResponseOK) {
         return false;
     }
 
-    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
-        return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", COPS_TIMEOUT));
+    if (strcmp(requiredOperator, SODAQ_R4X_AUTOMATIC_OPERATOR) == 0) {
+        return ((strncmp(buffer, "0", 1) == 0) || execCommand("AT+COPS=0,2", _cops_timeout));
     }
-    else if ((strncmp(buffer, "1", 1) == 0) && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
+    else if ((strncmp(buffer, "1", 1) == 0) &&
+            (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
         return true;
     }
     else {
@@ -2193,11 +2392,24 @@ bool Sodaq_R4X::checkCOPS(const char* requiredOperator, const char* requiredURAT
         print(requiredOperator);
         println('"');
 
-        return (readResponse(NULL, 0, NULL, COPS_TIMEOUT) == GSMResponseOK);
+        return (readResponse(NULL, 0, NULL, _cops_timeout) == GSMResponseOK);
     }
 }
 
-bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
+/**
+ * Check and set the MNO (Mobile Network Operator) profile
+ *
+ * The manual describes it as follows:
+ * "Follow this procedure to properly set up the configuration:
+ *  • Deregister the module from the network (perform a AT+CFUN=0 or
+ *    AT+CFUN=4 cycle or issue the AT+COPS=2 command)
+ *  • Issue AT+UMNOPROF=<MNO>
+ *  • Reboot the module (AT+CFUN=15) in order to apply the new configuration
+ * However, it was pointed out by Ublox that the first step MUST be
+ * a AT+CFUN=0, setRadioActive(false). This is also true for AT+URAT= and
+ * AT+UBANDMASK=
+ */
+bool Sodaq_R4X::checkMnoProfile(MNOProfile requiredProfile)
 {
     println("AT+UMNOPROF?");
 
@@ -2210,8 +2422,7 @@ bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
         return true;
     }
 
-    println("AT+COPS=2");
-    if (readResponse() != GSMResponseOK) {
+    if (!setRadioActive(false)) {
         return false;
     }
 
@@ -2221,6 +2432,8 @@ bool Sodaq_R4X::checkProfile(const uint8_t requiredProfile)
         return false;
     }
 
+    /* This saves the current settings to the NVM, then it reboots the module
+     */
     reboot();
 
     return true;
@@ -2243,8 +2456,7 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
         }
     }
 
-    println("AT+COPS=2");
-    if (readResponse() != GSMResponseOK) {
+    if (!setRadioActive(false)) {
         return false;
     }
 
@@ -2254,27 +2466,30 @@ bool Sodaq_R4X::checkUrat(const char* requiredURAT)
         return false;
     }
 
+    /* This saves the current settings to the NVM, then it reboots the module
+     */
     reboot();
 
     return true;
 }
 
-bool Sodaq_R4X::checkURC(char* buffer)
+bool Sodaq_R4X::checkURC(const char* buffer)
 {
     if (buffer[0] != '+') {
         return false;
     }
 
-    int param1, param2;
-    char param3[1024];
+    int param1;
+    int param2;
+    char param3[1024];                                  // WARNING! Large allocation on stack
 
     if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) {
-        #ifdef DEBUG
+#ifdef DEBUG
         debugPrint("Unsolicited: FOTA: ");
         debugPrint(param1);
         debugPrint(", ");
         debugPrintln(param2);
-        #endif
+#endif
 
         return true;
     }
@@ -2352,7 +2567,7 @@ bool Sodaq_R4X::checkURC(char* buffer)
         debugPrint(": ");
         debugPrintln(param2);
 
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
+        if (param1 >= 0 && param1 < SODAQ_UBLOX_SOCKET_COUNT) {
             _socketPendingBytes[param1] = param2;
         }
 
@@ -2365,7 +2580,7 @@ bool Sodaq_R4X::checkURC(char* buffer)
         debugPrint(": ");
         debugPrintln(param2);
 
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
+        if (param1 >= 0 && param1 < SODAQ_UBLOX_SOCKET_COUNT) {
             _socketPendingBytes[param1] = param2;
         }
 
@@ -2376,8 +2591,8 @@ bool Sodaq_R4X::checkURC(char* buffer)
         debugPrint("Unsolicited: Socket ");
         debugPrintln(param1);
 
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
-            _socketClosedBit[param1] = true;
+        if (param1 >= 0 && param1 < SODAQ_UBLOX_SOCKET_COUNT) {
+            _socketClosed[param1] = true;
         }
 
         return true;
@@ -2420,170 +2635,35 @@ bool Sodaq_R4X::setNetworkLEDState()
     return (readResponse() == GSMResponseOK);
 }
 
-bool Sodaq_R4X::isValidIPv4(const char* str)
-{
-    uint8_t  segs  = 0; // Segment count
-    uint8_t  chcnt = 0; // Character count within segment
-    uint16_t accum = 0; // Accumulator for segment
-
-    if (!str) {
-        return false;
-    }
-
-    // Process every character in string
-    while (*str != '\0') {
-        // Segment changeover
-        if (*str == '.') {
-            // Must have some digits in segment
-            if (chcnt == 0) {
-                return false;
-            }
-
-            // Limit number of segments
-            if (++segs == 4) {
-                return false;
-            }
-
-            // Reset segment values and restart loop
-            chcnt = accum = 0;
-            str++;
-            continue;
-        }
-
-        // Check numeric
-        if ((*str < '0') || (*str > '9')) {
-            return false;
-        }
-
-        // Accumulate and check segment
-        if ((accum = accum * 10 + *str - '0') > 255) {
-            return false;
-        }
-
-        // Advance other segment specific stuff and continue loop
-        chcnt++;
-        str++;
-    }
-
-    // Check enough segments and enough characters in last segment
-    if (segs != 3) {
-        return false;
-    }
-
-    if (chcnt == 0) {
-        return false;
-    }
-
-    // Address OK
-    return true;
-}
-
-/**
- * 1. check echo
- * 2. check ok
- * 3. check error
- * 4. if response prefix is not empty, check response prefix, append if multiline
- * 5. check URC, if handled => continue
- * 6. if response prefis is empty, return the whole line return line buffer, append if multiline
-*/
-GSMResponseTypes Sodaq_R4X::readResponse(char* outBuffer, size_t outMaxSize, const char* prefix, uint32_t timeout)
-{
-    bool usePrefix    = prefix != NULL && prefix[0] != 0;
-    bool useOutBuffer = outBuffer != NULL && outMaxSize > 0;
-
-    uint32_t from = NOW;
-
-    size_t outSize = 0;
-
-    if (outBuffer) {
-        outBuffer[0] = 0;
-    }
-
-    while (!is_timedout(from, timeout)) {
-        int count = readLn(_inputBuffer, _inputBufferSize, 250); // 250ms, how many bytes at which baudrate?
-        sodaq_wdt_reset();
-
-        if (count <= 0) {
-            continue;
-        }
-
-        debugPrint("<< ");
-        debugPrintln(_inputBuffer);
-
-        if (startsWith(STR_AT, _inputBuffer)) {
-            continue; // skip echoed back command
-        }
-
-        if (startsWith(STR_RESPONSE_OK, _inputBuffer)) {
-            return GSMResponseOK;
-        }
-
-        if (startsWith(STR_RESPONSE_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CMS_ERROR, _inputBuffer)) {
-            return GSMResponseError;
-        }
-
-        if ((_inputBuffer[0] == STR_RESPONSE_SOCKET_PROMPT) || (_inputBuffer[0] == STR_RESPONSE_FILE_PROMPT)) {
-            return GSMResponsePrompt;
-        }
-
-        bool hasPrefix = usePrefix && useOutBuffer && startsWith(prefix, _inputBuffer);
-
-        if (!hasPrefix && checkURC(_inputBuffer)) {
-            continue;
-        }
-
-        if (hasPrefix || (!usePrefix && useOutBuffer)) {
-            if (outSize > 0 && outSize < outMaxSize - 1) {
-                outBuffer[outSize++] = LF;
-            }
-
-            if (outSize < outMaxSize - 1) {
-                char* inBuffer = _inputBuffer;
-                if (hasPrefix) {
-                    int i = strlen(prefix);
-                    count -= i;
-                    inBuffer += i;
-                }
-                if (outSize + count > outMaxSize - 1) {
-                    count = outMaxSize - 1 - outSize;
-                }
-                memcpy(outBuffer + outSize, inBuffer, count);
-                outSize += count;
-                outBuffer[outSize] = 0;
-            }
-        }
-    }
-
-    debugPrintln("<< timed out");
-
-    return GSMResponseTimeout;
-}
-
 void Sodaq_R4X::reboot()
 {
-    println("AT+CFUN=15");
+    debugPrintln("[reboot]");
 
-    // wait up to 2000ms for the modem to come up
-    uint32_t start = millis();
-
-    while ((readResponse() != GSMResponseOK) && !is_timedout(start, 2000)) {}
+    execCommand("AT+CFUN=15");
+    _echoOff = false;
 
     // wait for the reboot to start
     sodaq_wdt_safe_delay(REBOOT_DELAY);
+
+    // wait a while for the modem to come up
+    uint32_t start = millis();
+    while (!isAlive() && !is_timedout(start, 3000)) {
+        sodaq_wdt_safe_delay(100);
+    }
+    /* Flush any input that came in right after the loop timed out.
+     */
+    while (readLn(10) > 0) {
+    }
+
+    // echo off again after reboot
+    switchEchoOff();
 
     while (!is_timedout(start, REBOOT_TIMEOUT)) {
         if (getSimStatus() == SimReady) {
             break;
         }
+        sodaq_wdt_safe_delay(100);
     }
-
-    // echo off again after reboot
-    execCommand("ATE0");
-
-    // extra read just to clear the input stream
-    readResponse(NULL, 0, NULL, 250);
 }
 
 bool Sodaq_R4X::setSimPin(const char* simPin)
@@ -2595,326 +2675,24 @@ bool Sodaq_R4X::setSimPin(const char* simPin)
     return (readResponse() == GSMResponseOK);
 }
 
-bool Sodaq_R4X::waitForSignalQuality(uint32_t timeout)
-{
-    uint32_t start = millis();
-    const int8_t minRSSI = getMinRSSI();
-    int8_t rssi;
-    uint8_t ber;
-
-    uint32_t delay_count = 500;
-
-    while (!is_timedout(start, timeout)) {
-        if (getRSSIAndBER(&rssi, &ber)) {
-            if (rssi != 0 && rssi >= minRSSI) {
-                _lastRSSI = rssi;
-                _CSQtime = (int32_t)(millis() - start) / 1000;
-                return true;
-            }
-        }
-
-        sodaq_wdt_safe_delay(delay_count);
-
-        // Next time wait a little longer, but not longer than 5 seconds
-        if (delay_count < 5000) {
-            delay_count += 1000;
-        }
-    }
-
-    return false;
-}
-
-
-/******************************************************************************
-* Utils
-*****************************************************************************/
-
-uint32_t Sodaq_R4X::convertDatetimeToEpoch(int y, int m, int d, int h, int min, int sec)
-{
-    struct tm tm;
-
-    tm.tm_isdst = -1;
-    tm.tm_yday  = 0;
-    tm.tm_wday  = 0;
-    tm.tm_year  = y + EPOCH_TIME_YEAR_OFF;
-    tm.tm_mon   = m - 1;
-    tm.tm_mday  = d;
-    tm.tm_hour  = h;
-    tm.tm_min   = min;
-    tm.tm_sec   = sec;
-
-    return mktime(&tm);
-}
-
-bool Sodaq_R4X::startsWith(const char* pre, const char* str)
-{
-    return (strncmp(pre, str, strlen(pre)) == 0);
-}
-
-
 /******************************************************************************
 * Generic
 *****************************************************************************/
 
-// Returns true if the modem is on.
-bool Sodaq_R4X::isOn() const
+/**
+ * Wait for the Socket Prompt '@'
+ */
+bool Sodaq_R4X::waitForSocketPrompt(uint32_t timeout)
 {
-    if (_onoff) {
-        return _onoff->isOn();
-    }
-
-    // No onoff. Let's assume it is on.
-    return true;
+    return waitForPrompt(STR_RESPONSE_SOCKET_PROMPT, timeout);
 }
 
-void Sodaq_R4X::writeProlog()
+/**
+ * Wait for the Socket Prompt '>'
+ */
+bool Sodaq_R4X::waitForFilePrompt(uint32_t timeout)
 {
-    if (!_appendCommand) {
-        debugPrint(">> ");
-        _appendCommand = true;
-    }
-}
-
-// Write a byte, as binary data
-size_t Sodaq_R4X::writeByte(uint8_t value)
-{
-    return _modemStream->write(value);
-}
-
-size_t Sodaq_R4X::print(const String& buffer)
-{
-    writeProlog();
-    debugPrint(buffer);
-
-    return _modemStream->print(buffer);
-}
-
-size_t Sodaq_R4X::print(const char buffer[])
-{
-    writeProlog();
-    debugPrint(buffer);
-
-    return _modemStream->print(buffer);
-}
-
-size_t Sodaq_R4X::print(char value)
-{
-    writeProlog();
-    debugPrint(value);
-
-    return _modemStream->print(value);
-};
-
-size_t Sodaq_R4X::print(unsigned char value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemStream->print(value, base);
-};
-
-size_t Sodaq_R4X::print(int value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemStream->print(value, base);
-};
-
-size_t Sodaq_R4X::print(unsigned int value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemStream->print(value, base);
-};
-
-size_t Sodaq_R4X::print(long value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemStream->print(value, base);
-};
-
-size_t Sodaq_R4X::print(unsigned long value, int base)
-{
-    writeProlog();
-    debugPrint(value, base);
-
-    return _modemStream->print(value, base);
-};
-
-size_t Sodaq_R4X::println(const __FlashStringHelper *ifsh)
-{
-    return print(ifsh) + println();
-}
-
-size_t Sodaq_R4X::println(const String &s)
-{
-    return print(s) + println();
-}
-
-size_t Sodaq_R4X::println(const char c[])
-{
-    return print(c) + println();
-}
-
-size_t Sodaq_R4X::println(char c)
-{
-    return print(c) + println();
-}
-
-size_t Sodaq_R4X::println(unsigned char b, int base)
-{
-    return print(b, base) + println();
-}
-
-size_t Sodaq_R4X::println(int num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(unsigned int num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(long num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(unsigned long num, int base)
-{
-    return print(num, base) + println();
-}
-
-size_t Sodaq_R4X::println(double num, int digits)
-{
-    writeProlog();
-    debugPrint(num, digits);
-
-    return _modemStream->println(num, digits);
-}
-
-size_t Sodaq_R4X::println(const Printable& x)
-{
-    return print(x) + println();
-}
-
-size_t Sodaq_R4X::println()
-{
-    debugPrintln();
-    size_t i = print(CR);
-    _appendCommand = false;
-    return i;
-}
-
-// Initializes the input buffer and makes sure it is only initialized once.
-// Safe to call multiple times.
-void Sodaq_R4X::initBuffer()
-{
-    debugPrintln("[initBuffer]");
-
-    // make sure the buffers are only initialized once
-    if (!_isBufferInitialized) {
-        _inputBuffer = static_cast<char*>(malloc(_inputBufferSize));
-        _isBufferInitialized = true;
-    }
-}
-
-// Sets the modem stream.
-void Sodaq_R4X::setModemStream(Stream& stream)
-{
-    _modemStream = &stream;
-}
-
-// Returns a character from the modem stream if read within _timeout ms or -1 otherwise.
-int Sodaq_R4X::timedRead(uint32_t timeout) const
-{
-    uint32_t _startMillis = millis();
-
-    do {
-        int c = _modemStream->read();
-
-        if (c >= 0) {
-            return c;
-        }
-    } while (millis() - _startMillis < timeout);
-
-    return -1; // -1 indicates timeout
-}
-
-// Fills the given "buffer" with characters read from the modem stream up to "length"
-// maximum characters and until the "terminator" character is found or a character read
-// times out (whichever happens first).
-// The buffer does not contain the "terminator" character or a null terminator explicitly.
-// Returns the number of characters written to the buffer, not including null terminator.
-size_t Sodaq_R4X::readBytesUntil(char terminator, char* buffer, size_t length, uint32_t timeout)
-{
-    if (length < 1) {
-        return 0;
-    }
-
-    size_t index = 0;
-
-    while (index < length) {
-        int c = timedRead(timeout);
-
-        if (c < 0 || c == terminator) {
-            break;
-        }
-
-        *buffer++ = static_cast<char>(c);
-        index++;
-    }
-    if (index < length) {
-        *buffer = '\0';
-    }
-
-    return index; // return number of characters, not including null terminator
-}
-
-// Fills the given "buffer" with up to "length" characters read from the modem stream.
-// It stops when a character read times out or "length" characters have been read.
-// Returns the number of characters written to the buffer.
-size_t Sodaq_R4X::readBytes(uint8_t* buffer, size_t length, uint32_t timeout)
-{
-    size_t count = 0;
-
-    while (count < length) {
-        int c = timedRead(timeout);
-
-        if (c < 0) {
-            break;
-        }
-
-        *buffer++ = static_cast<uint8_t>(c);
-        count++;
-    }
-
-    return count;
-}
-
-// Reads a line (up to the SODAQ_GSM_TERMINATOR) from the modem stream into the "buffer".
-// The buffer is terminated with null.
-// Returns the number of bytes read, not including the null terminator.
-size_t Sodaq_R4X::readLn(char* buffer, size_t size, uint32_t timeout)
-{
-    // Use size-1 to leave room for a string terminator
-    size_t len = readBytesUntil(SODAQ_GSM_TERMINATOR[SODAQ_GSM_TERMINATOR_LEN - 1], buffer, size - 1, timeout);
-
-    // check if the terminator is more than 1 characters, then check if the first character of it exists
-    // in the calculated position and terminate the string there
-    if ((SODAQ_GSM_TERMINATOR_LEN > 1) && (buffer[len - (SODAQ_GSM_TERMINATOR_LEN - 1)] == SODAQ_GSM_TERMINATOR[0])) {
-        len -= SODAQ_GSM_TERMINATOR_LEN - 1;
-    }
-
-    // terminate string, there should always be room for it (see size-1 above)
-    buffer[len] = '\0';
-
-    return len;
+    return waitForPrompt(STR_RESPONSE_FILE_PROMPT, timeout);
 }
 
 
@@ -2924,42 +2702,62 @@ size_t Sodaq_R4X::readLn(char* buffer, size_t size, uint32_t timeout)
 
 Sodaq_SARA_R4XX_OnOff::Sodaq_SARA_R4XX_OnOff()
 {
-    #ifdef PIN_SARA_ENABLE
+#ifdef PIN_SARA_ENABLE
     // First write the output value, and only then set the output mode.
     digitalWrite(SARA_ENABLE, LOW);
     pinMode(SARA_ENABLE, OUTPUT);
 
     digitalWrite(SARA_TX_ENABLE, LOW);
     pinMode(SARA_TX_ENABLE, OUTPUT);
-    #endif
+
+    pinMode(SARA_R4XX_TOGGLE, INPUT);
+    digitalWrite(SARA_R4XX_TOGGLE, HIGH);
+#endif
 
     _onoff_status = false;
 }
 
 void Sodaq_SARA_R4XX_OnOff::on()
 {
-    #ifdef PIN_SARA_ENABLE
+#ifdef PIN_SARA_ENABLE
     digitalWrite(SARA_ENABLE, HIGH);
     digitalWrite(SARA_TX_ENABLE, HIGH);
 
+    /*
+     * This is the PWR_ON pin of the R4X
+     * See SARA-R4 series-Data sheet
+     *  - turn low (between 0.15s and 3.2s) to trigger module switch on from power off mode
+     *  - turn low (between 0.15s and 3.2s) to trigger module wake-up from PSM deep sleep
+     *  - turn low (at least 1.5s) to trigger module switch off
+     * Since we put on the power (SARA_ENABLE controls power supply), we
+     * know it must be in power off mode.
+     */
     pinMode(SARA_R4XX_TOGGLE, OUTPUT);
     digitalWrite(SARA_R4XX_TOGGLE, LOW);
-    // We should be able to reduce this to 50ms or something
+    // TODO Can we reduce this to something like 200ms?
     sodaq_wdt_safe_delay(2000);
+
+    /*
+     * Make the pin INPUT and thus it will go HIGH due to the pull-up
+     * in the R4X.
+     */
     pinMode(SARA_R4XX_TOGGLE, INPUT);
+#endif
 
     _onoff_status = true;
-    #endif
 }
 
 void Sodaq_SARA_R4XX_OnOff::off()
 {
-    #ifdef PIN_SARA_ENABLE
+#ifdef PIN_SARA_ENABLE
+    /*
+     * Completely switch off power of the R4X.
+     */
     digitalWrite(SARA_ENABLE, LOW);
     digitalWrite(SARA_TX_ENABLE, LOW);
+#endif
 
     _onoff_status = false;
-    #endif
 }
 
 bool Sodaq_SARA_R4XX_OnOff::isOn()
