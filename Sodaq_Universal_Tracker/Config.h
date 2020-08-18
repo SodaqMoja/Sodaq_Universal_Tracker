@@ -75,7 +75,7 @@ struct ConfigParams
     char _band[36 + 1];
     uint8_t _rxTimeout;
 
-    char _targetIP[16]; // 4x3 = 12, + 3 dots, + nullchar = 16
+    char _targetIP[50]; // IP or DNS = 50 
 
     uint16_t _targetPort;
 
