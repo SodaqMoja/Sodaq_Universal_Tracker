@@ -201,7 +201,7 @@ static const Command args[] = {
     { "APN user                  ", "apnu=", Command::set_string, Command::show_string, params._apnUser, sizeof(params._apnUser) },
     { "APN password              ", "apnp=", Command::set_string, Command::show_string, params._apnPassword, sizeof(params._apnPassword) },
     { "Band Info                 ", "bnd=", Command::set_string,  Command::show_string, params._band, sizeof(params._band) },
-    { "Target IP                 ", "ip=",  Command::set_string, Command::show_string, params._targetIP, sizeof(params._targetIP) },
+    { "Target IP or DNS          ", "ip=",  Command::set_string, Command::show_string, params._targetIP, sizeof(params._targetIP) },
     { "Target port               ", "prt=", Command::set_uint16, Command::show_uint16, &params._targetPort },
     { "Response Timeout          ", "rxto=", Command::set_uint8, Command::show_uint8, &params._rxTimeout },
 #endif
