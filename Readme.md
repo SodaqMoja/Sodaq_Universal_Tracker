@@ -17,7 +17,7 @@ Just open the Arduino Serial Monitor (at 115200 baud, with line endings set to N
 [In the case of SARA AFF or SFF]
 
 ```Arduino
-** SODAQ - Universal Tracker - 1.0.3 **
+** SODAQ - Universal Tracker - 1.0.4 **
 
  -> CPU reset by Software [64]
 
@@ -51,12 +51,12 @@ Cellular
   Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, R4xx LTE-M = 4, R412 2G = 5, 2G/3G = 6)  (ntype=): 0
   All Things Talk Token      (att=):
   APN                        (apn=): nb.inetd.gdsp
-  Force Operator             (opr=): 20404
+  Force Operator             (opr=): 0
   CID                        (cid=): 1
   MNO Profile                (mno=): 1
   APN user                   (apnu=):
   APN password               (apnp=):
-  NB-IoT Band                (bnd=): 20
+  Band Info                  (bnd=): 524416
   Target IP                  (ip=): 0.0.0.0
   Target port                (prt=): 1
   Response Timeout           (rxto=): 15
@@ -70,7 +70,7 @@ Enter command:
 [In the case of SODAQ ONE]
 
 ```Arduino
-** SODAQ - Universal Tracker - 1.0.3 **
+** SODAQ - Universal Tracker - 1.0.4 **
 LoRa HWEUI: 0004A30B001FB4C1
  -> CPU reset by Software [64]
 
@@ -149,6 +149,17 @@ For redundancy we could configure a repeat count. The value of the repeat count 
 
 The Lora frame contains the following data. The minimum frame size is 21 bytes, the maximum frame size 51 bytes, depending on the number of coordinates we have configured to be sent.
 
+### Band settings
+
+From 1.0.4 there is support for multiband selection.
+
+Bands 8 and 20 can be set for the N2XX by bnd=8,20
+Band Info                (bnd=): 8,20
+
+Bands 8 and 20 can be set for the R4XX by bnd=524416
+524416 is the decimal presentation of the 8th and 20th bit. 10000000000010000000
+Band Info                (bnd=): 524416
+
 ### LoRa Connection
 
 The LoRa communication only starts if the keys are not 0 (0 is the default)
@@ -197,7 +208,7 @@ You can send the following configuration parameters back to the device (as part 
 
 ## License
 
-Copyright (c) 2018, SODAQ
+Copyright (c) 2018-2020, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without

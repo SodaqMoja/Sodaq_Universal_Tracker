@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2018, SODAQ
+Copyright (c) 2018-2020, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -51,7 +51,7 @@ POSSIBILITY OF SUCH DAMAGE.
 //#define DEBUG
 
 #define PROJECT_NAME "SODAQ - Universal Tracker"
-#define VERSION "1.0.3"
+#define VERSION "1.0.4"
 #define STARTUP_DELAY 5000
 
 // #define DEFAULT_LORA_PORT 2
@@ -112,10 +112,10 @@ Time time;
 Sodaq_LSM303AGR accelerometer;
 Network network;
 
-#define DEFAULT_APN "nb.inetd.gdsp"
-#define DEFAULT_FORCE_OPERATOR "20404"
-// #define DEFAULT_BAND "524416" // R4X bandmask for band 8,20
-#define DEFAULT_BAND "8,20" // N2X select bands 8 and 20
+#define DEFAULT_APN "nb.inetd.gdsp" // APN Vodafone NB-IoT
+#define DEFAULT_FORCE_OPERATOR "0" // Use "0" for auto operator
+#define DEFAULT_BAND "524416" // R4X bandmask for band 8,20
+// #define DEFAULT_BAND "8,20" // N2X select bands 8 and 20
 
 #define DEFAULT_APN_USER ""
 #define DEFAULT_APN_PASSWORD ""
