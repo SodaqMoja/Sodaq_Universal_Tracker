@@ -189,6 +189,11 @@ bool R4xNetwork::getIMEI(char* buffer, size_t size)
     return r4x.getIMEI(buffer, size);
 }
 
+bool R4xNetwork::getIMSI(char* buffer, size_t size)
+{
+    return r4x.getIMSI(buffer, size);
+}
+
 bool R4xNetwork::getCCID(char* buffer, size_t size)
 {
     return r4x.getCCID(buffer, size);

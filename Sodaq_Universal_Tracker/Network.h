@@ -71,6 +71,7 @@ public:
     LoraNetwork& getLoraNetwork();
     const char* getIMEI();
     const char* getCCID();
+    const char* getIMSI();
     const char* getModuleVersion();
 
     uint32_t getBaudRate();

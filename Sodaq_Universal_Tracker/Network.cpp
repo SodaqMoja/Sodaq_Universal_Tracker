@@ -53,6 +53,8 @@ static bool isModuleVersionInitialized;
 static char cachedModuleVersion[50];
 static bool isCcidInitialized;
 static char cachedCcid[32];
+static bool isImsiInitialized;
+static char cachedImsi[22];
 
 bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*getNow)(), InitConsoleMessages messages, InitJoin join)
 {
@@ -339,6 +341,49 @@ const char* Network::getCCID()
     }
 
     return cachedCcid;
+#else
+    return "NA";
+#endif
+}
+
+const char* Network::getIMSI()
+{
+#if defined(ARDUINO_SODAQ_SFF) || defined(ARDUINO_SODAQ_SARA)
+    if (!isImsiInitialized) {
+        char tmpBuffer[22];
+        bool success = false;
+
+        switch (_networkType) {
+            case NETWORK_TYPE_NBIOT_N2: {
+                // success = n2xNetwork.getIMSI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            case NETWORK_TYPE_NBIOT_R4:
+            case NETWORK_TYPE_LTEM_R4:
+            case NETWORK_TYPE_2G_R4: {
+                success = r4xNetwork.getIMSI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            case NETWORK_TYPE_LORA: {
+                break;
+            }
+            case NETWORK_TYPE_2G_3G: {
+                // success = network3G.getIMSI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            default: {
+                debugPrintLn("Unsupported network type");
+                break;
+            }
+        }
+
+        if (success) {
+            strncpy(cachedImsi, tmpBuffer, sizeof(cachedImsi));
+            isImsiInitialized = true;
+        }
+    }
+
+    return cachedImsi;
 #else
     return "NA";
 #endif
