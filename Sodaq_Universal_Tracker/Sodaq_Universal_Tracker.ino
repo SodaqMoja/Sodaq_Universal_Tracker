@@ -939,7 +939,7 @@ bool getGpsFixAndTransmit()
 
         return false;
     }
-    
+
     bool isSuccessful = false;
     setGpsActive(true);
 

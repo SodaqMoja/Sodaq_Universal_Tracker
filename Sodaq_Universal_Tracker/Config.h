@@ -47,7 +47,7 @@ struct ConfigParams
     uint8_t _alternativeFixFromMinutes;
     uint8_t _alternativeFixToHours;
     uint8_t _alternativeFixToMinutes;
-    uint16_t _gpsFixTimeout;
+    uint8_t _gpsFixTimeout;
 
     uint8_t _accelerationPercentage;
     uint8_t _accelerationDuration;
@@ -111,7 +111,7 @@ public:
     uint8_t getAlternativeFixToHours() const { return _alternativeFixToHours; }
     uint8_t getAlternativeFixToMinutes() const { return _alternativeFixToMinutes; }
     uint32_t getAlternativeFixTo() const { return _alternativeFixToHours * 60 * 60 + _alternativeFixToMinutes * 60; }
-    uint16_t getGpsFixTimeout() const { return _gpsFixTimeout; }
+    uint8_t getGpsFixTimeout() const { return _gpsFixTimeout; }
 
     uint8_t getAccelerationPercentage() const { return _accelerationPercentage; }
     uint8_t getAccelerationDuration() const { return _accelerationDuration; }

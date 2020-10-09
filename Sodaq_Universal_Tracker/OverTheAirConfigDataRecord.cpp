@@ -38,6 +38,10 @@ static const uint8_t OverTheAirConfigDataFieldSizes[] = { OVER_THE_AIR_CONFIG_DA
 
 bool OverTheAirConfigDataRecord::isValid() const
 {
+    if (getGpsFixTimeout() > 250) {
+        return false;
+    }
+
     return (getDefaultFixInterval() != 0xFFFF);
 }
 
