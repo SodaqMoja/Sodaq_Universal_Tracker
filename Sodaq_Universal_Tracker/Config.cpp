@@ -169,7 +169,7 @@ static const Command args[] = {
     { "Alt. Fix From (MM)        ", "affm=", Command::set_uint8, Command::show_uint8, &params._alternativeFixFromMinutes },
     { "Alt. Fix To (HH)          ", "afth=", Command::set_uint8, Command::show_uint8, &params._alternativeFixToHours },
     { "Alt. Fix To (MM)          ", "aftm=", Command::set_uint8, Command::show_uint8, &params._alternativeFixToMinutes },
-    { "GPS Fix Timeout (sec)     ", "gft=", Command::set_uint16, Command::show_uint16, &params._gpsFixTimeout },
+    { "GPS Fix Timeout (sec)     ", "gft=", Command::set_uint8, Command::show_uint8, &params._gpsFixTimeout },
     { "Minimum sat count         ", "sat=", Command::set_uint8, Command::show_uint8, &params._gpsMinSatelliteCount },
     { "Num Coords to Upload      ", "num=", Command::set_uint8, Command::show_uint8, &params._coordinateUploadCount },
     { "On-the-move Functionality ", 0,      0,                  Command::show_title, 0 },
@@ -301,6 +301,11 @@ bool ConfigParams::checkConfig(Stream& stream)
 
     if (_isDebugOn > 1) {
         stream.println("Debug must be either 0 or 1");
+        fail = true;
+    }
+
+    if (_gpsFixTimeout > 250) {
+        stream.println("GPS fix timeout must not be more than 250 seconds");
         fail = true;
     }
 

@@ -42,7 +42,8 @@ POSSIBILITY OF SUCH DAMAGE.
 //    uint16_t AlternativeFixInterval;
 //    uint32_t AlternativeFixFrom;
 //    uint32_t AlternativeFixTo;
-//    uint16_t GpsFixTimeout;
+//    uint8_t GpsFixTimeout;
+//    uint8_t Reserved;
 
 #define OVER_THE_AIR_CONFIG_DATA_RECORD_HEADER "DefaultFixInterval, AlternativeFixInterval, AlternativeFixFrom, AlternativeFixTo, GpsFixTimeout"
 
@@ -50,7 +51,8 @@ POSSIBILITY OF SUCH DAMAGE.
                                              sizeof(uint16_t), \
                                              sizeof(uint32_t), \
                                              sizeof(uint32_t), \
-                                             sizeof(uint16_t)
+                                             sizeof(uint8_t), \
+                                             sizeof(uint8_t)
 
 #define OVER_THE_AIR_CONFIG_DATA_BUFFER_SIZE (SUM(OVER_THE_AIR_CONFIG_DATA_FIELD_SIZES))
 #define OVER_THE_AIR_CONFIG_DATA_FIELD_COUNT (COUNT(OVER_THE_AIR_CONFIG_DATA_FIELD_SIZES))
@@ -83,8 +85,8 @@ public:
     uint32_t getAlternativeFixTo() const { return getFieldValue<uint32_t>(AlternativeFixTo); }
     void setAlternativeFixTo(uint32_t value) const { setFieldValue(AlternativeFixTo, value); }
 
-    uint16_t getGpsFixTimeout() const { return getFieldValue<uint16_t>(GpsFixTimeout); }
-    void setGpsFixTimeout(uint16_t value) const { setFieldValue(GpsFixTimeout, value); }
+    uint8_t getGpsFixTimeout() const { return getFieldValue<uint8_t>(GpsFixTimeout); }
+    void setGpsFixTimeout(uint8_t value) const { setFieldValue(GpsFixTimeout, value); }
 
 protected:
     uint8_t getFieldSize(uint8_t fieldIndex) const;
