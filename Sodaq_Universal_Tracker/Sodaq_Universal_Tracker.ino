@@ -675,7 +675,7 @@ void showCcid()
     network.setConsoleStream(CONSOLE_STREAM);
     network.setNetworkType((Network::NetworkType)params.getNetworkType());
     network.init(MODEM_STREAM, updateConfigOverTheAir, getNow, INIT_SHOW_CONSOLE_MESSAGES, INIT_SKIP_JOIN);
-
+    network.setActive(true);
     consolePrintln("Modem initialized.");
     consolePrint("CCID: ");
     consolePrintln(network.getCCID());
@@ -693,7 +693,7 @@ void showImsi()
     network.setConsoleStream(CONSOLE_STREAM);
     network.setNetworkType((Network::NetworkType)params.getNetworkType());
     network.init(MODEM_STREAM, updateConfigOverTheAir, getNow, INIT_SHOW_CONSOLE_MESSAGES, INIT_SKIP_JOIN);
-
+    network.setActive(true);
     consolePrintln("Modem initialized.");
     consolePrint("IMSI: ");
     consolePrintln(network.getIMSI());

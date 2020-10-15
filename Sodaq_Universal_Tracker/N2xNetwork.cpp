@@ -181,6 +181,11 @@ bool N2xNetwork::getCCID(char* buffer, size_t size)
     return n2x.getCCID(buffer, size);
 }
 
+bool N2xNetwork::getIMSI(char* buffer, size_t size)
+{
+    return n2x.getIMSI(buffer, size);
+}
+
 bool N2xNetwork::getModuleVersion(char* buffer, size_t size)
 {
     return n2x.getFirmwareRevision(buffer, size);

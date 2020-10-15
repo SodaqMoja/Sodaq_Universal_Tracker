@@ -355,7 +355,7 @@ const char* Network::getIMSI()
 
         switch (_networkType) {
             case NETWORK_TYPE_NBIOT_N2: {
-                // success = n2xNetwork.getIMSI(tmpBuffer, sizeof(tmpBuffer));
+                success = n2xNetwork.getIMSI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
             case NETWORK_TYPE_NBIOT_R4:
