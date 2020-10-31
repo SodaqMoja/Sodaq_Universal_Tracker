@@ -50,7 +50,6 @@ struct ConfigParams
     uint8_t _gpsFixTimeout;
     uint16_t _gpsPosAccuracy;
     uint8_t _gpsDynModel;
-
     uint8_t _accelerationPercentage;
     uint8_t _accelerationDuration;
     uint8_t _onTheMoveFixInterval;

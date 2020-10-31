@@ -269,7 +269,35 @@ void UBlox::CfgMsg(uint16_t Msg,uint8_t rate) {
     this->wait();
 }
 
-int UBlox::setTimePulseParameters (TimePulseParameters *Tpp) {
+// UBX-CFG-NAV5 / 32.0.19.1
+bool UBlox::getNavParameters(NavigationEngineSetting *nav) {
+    uint8_t buffer[6];
+    buffer[0] = 0x06;
+    buffer[1] = 0x24;
+    buffer[2] = 0;
+    buffer[3] = 0;
+    // Push message on Wire
+    (void)this->send(buffer, 4);
+    return this->wait(0x0624, sizeof(NavigationEngineSetting), nav);
+}
+
+// UBX-CFG-NAV5 / 32.0.19.1
+bool UBlox::setNavParameters(NavigationEngineSetting *nav) {
+    uint8_t buffer[40];
+    buffer[0] = 0x06;
+    buffer[1] = 0x24;
+    buffer[2] = 36; // message is 36 bytes long
+    buffer[3] = 0;
+    memcpy(&buffer[4], (uint8_t *)nav, 36);
+    // Push message on Wire
+    (void)this->send(buffer, 40);
+    return this->wait();
+}
+
+
+// 32.10.38.3
+int UBlox::setTimePulseParameters(TimePulseParameters *Tpp)
+{
     // Warning this overwrites the receive buffer !!!
     payLoad_.buffer[0] = 0x06;
     payLoad_.buffer[1] = 0x31;
