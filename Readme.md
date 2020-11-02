@@ -92,6 +92,8 @@ GPS
   Alt. Fix To (HH)           (afth=): 0
   Alt. Fix To (MM)           (aftm=): 0
   GPS Fix Timeout (sec)      (gft=): 120
+  GPS Postition Accuracy (m) (gpa=): 0
+  GPS Dynamic Model          (gpm=): 0
   Minimum sat count          (sat=): 4
   Num Coords to Upload       (num=): 1
 

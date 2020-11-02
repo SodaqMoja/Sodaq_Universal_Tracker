@@ -1067,8 +1067,49 @@ void setGpsActive(bool on)
         }
         if (retriesLeft == -1) {
             debugPrintln("ublox.setPortConfigurationDDC(&pcd) failed!");
-
             return;
+        }
+
+
+        if (params.getGpsPositionAccuracy() != 0 || params.getGpsDynamicModel() != 0) {
+            NavigationEngineSetting nav;
+
+            retriesLeft = maxRetries;
+            while (!ublox.getNavParameters(&nav) && (retriesLeft-- > 0))
+            {
+                debugPrintln("Retrying ublox.getNavParameters(&nav)...");
+                sodaq_wdt_safe_delay(15);
+            }
+            if (retriesLeft == -1)
+            {
+                debugPrintln("ublox.getNavParameters(&nav) failed!");
+                return;
+            }
+
+            nav.mask = 0;
+            if (params.getGpsPositionAccuracy() != 0) {
+                debugPrintln("Setting ublox Gps PositionAccuracy");
+                nav.mask |= 16;
+                nav.pAcc = params.getGpsPositionAccuracy();
+            }
+            
+            if (params.getGpsDynamicModel() != 0) {
+                debugPrintln("Setting ublox DynamicModel");
+                nav.mask |= 1;
+                nav.dynModel = params.getGpsDynamicModel();
+            }
+
+            retriesLeft = maxRetries;
+            while (!ublox.setNavParameters(&nav) && (retriesLeft-- > 0))
+            {
+                debugPrintln("Retrying ublox.setNavParameters(&nav)...");
+                sodaq_wdt_safe_delay(15);
+            }
+            if (retriesLeft == -1)
+            {
+                debugPrintln("ublox.setNavParameters(&nav) failed!");
+                return;
+            }
         }
 
         ublox.CfgMsg(UBX_NAV_PVT, 1); // Navigation Position Velocity TimeSolution
