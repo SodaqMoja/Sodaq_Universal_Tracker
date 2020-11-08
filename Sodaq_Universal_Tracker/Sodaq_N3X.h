@@ -165,6 +165,7 @@ public:
     void purgeAllResponsesRead();
     bool setApn(const char* apn);
     bool setBandSel(const char* bandSel);
+    bool setDefaultApn(const char* apn);
     bool setOperator(const char* opr);
     bool setRadioActive(bool on);
     bool setVerboseErrors(bool on);
@@ -218,7 +219,6 @@ private:
 
     int8_t checkApn(const char* requiredAPN);
     bool   checkCFUN();
-    bool   checkCOPS(const char* requiredOperator);
     bool   checkURC(char* buffer);
     bool   doSIMcheck();
 

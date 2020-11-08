@@ -124,6 +124,9 @@ void Sodaq_N3X::init(Sodaq_OnOffBee* onoff, Stream& stream, uint8_t cid)
 // Turns the modem on and returns true if successful.
 bool Sodaq_N3X::on()
 {
+    bool timeout;
+    uint8_t i;
+
     _startOn = millis();
 
     if (!isOn() && _onoff) {
@@ -131,8 +134,8 @@ bool Sodaq_N3X::on()
     }
 
     // wait for power up
-    bool timeout = true;
-    for (uint8_t i = 0; i < 10; i++) {
+    timeout = true;
+    for (i = 0; i < 10; i++) {
         if (isAlive()) {
             timeout = false;
             break;
@@ -161,6 +164,10 @@ bool Sodaq_N3X::off()
 // Turns on and initializes the modem, then connects to the network and activates the data connection.
 bool Sodaq_N3X::connect(const char* apn, const char* forceOperator, const char* bandSel)
 {
+    uint32_t tm;
+    uint8_t i;
+    int8_t j;
+
     if (!on()) {
         return false;
     }
@@ -175,6 +182,10 @@ bool Sodaq_N3X::connect(const char* apn, const char* forceOperator, const char* 
         return false;
     }
 
+    if (!execCommand("AT+CIPCA=0")) {
+        return false;
+    }
+
     if (!checkCFUN()) {
         return false;
     }
@@ -184,30 +195,41 @@ bool Sodaq_N3X::connect(const char* apn, const char* forceOperator, const char* 
         return false;
     }
 
-    bool cops_succeeded = false;
-    for (int i = 0; i < 3; i++) {
-        if (checkCOPS(forceOperator != 0 ? forceOperator : AUTOMATIC_OPERATOR)) {
-            cops_succeeded = true;
+    if (!setDefaultApn(apn)) {
+        return false;
+    }
+
+    if (!setOperator(forceOperator)) {
+        return false;
+    }
+
+    if (!setApn(apn)) {
+        return false;
+    }
+
+    if (!execCommand("AT+CGACT=1")) {
+        return false;
+    }
+
+    j = 0;
+    for (i = 0; i < 20; i++) {
+        j = checkApn(apn);
+        sodaq_wdt_safe_delay(3000);
+        if (j > 0) {
             break;
         }
-        sodaq_wdt_safe_delay(1000);
     }
-    if (!cops_succeeded) {
+    if (j < 0) {
         return false;
     }
 
-    int8_t i = checkApn(apn);
-    if (i < 0) {
-        return false;
-    }
-
-    uint32_t tm = millis();
+    tm = millis();
 
     if (!waitForSignalQuality()) {
         return false;
     }
 
-    if (i == 0 && !attachGprs(ATTACH_TIMEOUT)) {
+    if (j == 0 && !attachGprs(ATTACH_TIMEOUT)) {
         return false;
     }
 
@@ -274,6 +296,8 @@ bool Sodaq_N3X::getCCID(char* buffer, size_t size)
 
 bool Sodaq_N3X::getCellId(uint16_t* tac, uint32_t* cid)
 {
+    char responseBuffer[64];
+
     println("AT+CEREG=2");
 
     if (readResponse() != GSMResponseOK) {
@@ -282,7 +306,6 @@ bool Sodaq_N3X::getCellId(uint16_t* tac, uint32_t* cid)
 
     println("AT+CEREG?");
 
-    char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CEREG: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
@@ -297,9 +320,9 @@ bool Sodaq_N3X::getCellId(uint16_t* tac, uint32_t* cid)
 
 bool Sodaq_N3X::getEpoch(uint32_t* epoch)
 {
-    println("AT+CCLK?");
-
     char buffer[128];
+
+    println("AT+CCLK?");
 
     if (readResponse(buffer, sizeof(buffer), "+CCLK: ") != GSMResponseOK) {
         return false;
@@ -340,21 +363,35 @@ bool Sodaq_N3X::getFirmwareRevision(char* buffer, size_t size)
 // Returns true if successful.
 bool Sodaq_N3X::getIMEI(char* buffer, size_t size)
 {
+    char responseBuffer[64];
+
     if (buffer == NULL || size < 15 + 1) {
         return false;
     }
 
-    return (execCommand("AT+CGSN=1", DEFAULT_READ_MS, buffer, size) == GSMResponseOK) && (strlen(buffer) > 0) && (atoll(buffer) > 0);
+    println("AT+CGSN=1");
+
+    memset(responseBuffer, 0, sizeof(responseBuffer));
+
+    if ((readResponse(responseBuffer, sizeof(responseBuffer), "+CGSN: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
+
+        if (sscanf(responseBuffer, "\"%[^\"]\"", buffer) == 1) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 bool Sodaq_N3X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 {
-    println("AT+COPS?");
+    uint32_t operatorCode = 0;
 
     char responseBuffer[64];
-    memset(responseBuffer, 0, sizeof(responseBuffer));
 
-    uint32_t operatorCode = 0;
+    println("AT+COPS?");
+
+    memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
 
@@ -373,6 +410,8 @@ bool Sodaq_N3X::getOperatorInfo(uint16_t* mcc, uint16_t* mnc)
 
 bool Sodaq_N3X::getOperatorInfoString(char* buffer, size_t size)
 {
+    char responseBuffer[64];
+
     if (size < 32 + 1) {
          return false;
     }
@@ -381,7 +420,6 @@ bool Sodaq_N3X::getOperatorInfoString(char* buffer, size_t size)
 
     println("AT+COPS?");
 
-    char responseBuffer[64];
     memset(responseBuffer, 0, sizeof(responseBuffer));
 
     if ((readResponse(responseBuffer, sizeof(responseBuffer), "+COPS: ") == GSMResponseOK) && (strlen(responseBuffer) > 0)) {
@@ -396,9 +434,9 @@ bool Sodaq_N3X::getOperatorInfoString(char* buffer, size_t size)
 
 SimStatuses Sodaq_N3X::getSimStatus()
 {
-    println("AT+CPIN?");
-
     char buffer[32];
+
+    println("AT+CPIN?");
 
     if (readResponse(buffer, sizeof(buffer)) != GSMResponseOK) {
         return SimStatusUnknown;
@@ -435,9 +473,9 @@ bool Sodaq_N3X::isConnected()
 // Returns true if defined IP4 address is not 0.0.0.0.
 bool Sodaq_N3X::isDefinedIP4()
 {
-    println("AT+CGDCONT?");
-
     char buffer[256];
+
+    println("AT+CGDCONT?");
 
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
         return false;
@@ -475,6 +513,10 @@ void Sodaq_N3X::purgeAllResponsesRead()
 
 bool Sodaq_N3X::setApn(const char* apn)
 {
+    if (apn == NULL || apn[0] == 0) {
+        return false;
+    }
+
     print("AT+CGDCONT=");
     print(_cid);
     print(",\"IP\",\"");
@@ -486,8 +528,58 @@ bool Sodaq_N3X::setApn(const char* apn)
 
 bool Sodaq_N3X::setBandSel(const char* bandSel)
 {
+    if (bandSel == NULL || bandSel == NULL) {
+        return false;
+    }
+
     print("AT+UBANDSEL=");
     println(bandSel);
+
+    return (readResponse() == GSMResponseOK);
+}
+
+bool Sodaq_N3X::setDefaultApn(const char* apn)
+{
+    char buffer[100];
+    int pdp_type;
+    char default_apn[80];
+
+    if (apn == NULL || apn[0] == 0) {
+        return false;
+    }
+
+    /* Don't set it again, if it is equal to what we want.
+     */
+    println("AT+CFGDFTPDN?");
+
+    /* +CFGDFTPDN: 1,"internet.nbiot.telekom.de"
+     * First number:
+     *  1: IP
+     *  2: IPv6
+     *  3: IPv4v6
+     *  4: NON-IP
+     * We only doing / expecting IP!
+     */
+
+    if (readResponse(buffer, sizeof(buffer), "+CFGDFTPDN: ") != GSMResponseOK) {
+        return false;
+    }
+
+    if (sscanf(buffer, "%d,\"%[^\"]\"", &pdp_type, default_apn) != 2) {
+        if (sscanf(buffer, "%d,\"\"", &pdp_type) != 1) {
+            return false;
+        }
+    }
+    else if (pdp_type == 1 && strcmp(default_apn, apn) == 0) {
+        return true;
+    }
+
+    /* Either the command failed, or the default wasn't what we expected.
+     * Set the default (will be stored in NVM).
+     */
+    print("AT+CFGDFTPDN=1,\"");
+    print(apn);
+    println('"');
 
     return (readResponse() == GSMResponseOK);
 }
@@ -556,16 +648,15 @@ bool Sodaq_N3X::getRSSIAndBER(int8_t* rssi, uint8_t* ber)
 {
     static char berValues[] = { 49, 43, 37, 25, 19, 13, 7, 0 }; // 3GPP TS 45.008 [20] subclause 8.2.4
 
-    println("AT+CSQ");
-
     char buffer[256];
+    int csqRaw;
+    int berRaw;
+
+    println("AT+CSQ");
 
     if (readResponse(buffer, sizeof(buffer), "+CSQ: ") != GSMResponseOK) {
         return false;
     }
-
-    int csqRaw;
-    int berRaw;
 
     if (sscanf(buffer, "%d,%d", &csqRaw, &berRaw) != 2) {
         return false;
@@ -616,6 +707,8 @@ int Sodaq_N3X::socketCloseAll() {
 
 bool Sodaq_N3X::socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort)
 {
+    bool b;
+
     print("AT+USOCO=");
     print(socketID);
     print(",\"");
@@ -623,7 +716,7 @@ bool Sodaq_N3X::socketConnect(uint8_t socketID, const char* remoteHost, const ui
     print("\",");
     println(remotePort);
 
-    bool b = readResponse(NULL, 0, NULL, SOCKET_CONNECT_TIMEOUT) == GSMResponseOK;
+    b = readResponse(NULL, 0, NULL, SOCKET_CONNECT_TIMEOUT) == GSMResponseOK;
 
     _socketClosedBit  [socketID] = !b;
 
@@ -632,6 +725,9 @@ bool Sodaq_N3X::socketConnect(uint8_t socketID, const char* remoteHost, const ui
 
 int Sodaq_N3X::socketCreate(uint16_t localPort, Protocols protocol)
 {
+    char buffer[32];
+    int socketID;
+
     print("AT+USOCR=");
     print(protocol == UDP ? "17" : "6");
 
@@ -643,13 +739,9 @@ int Sodaq_N3X::socketCreate(uint16_t localPort, Protocols protocol)
         println();
     }
 
-    char buffer[32];
-
     if (readResponse(buffer, sizeof(buffer), "+USOCR: ") != GSMResponseOK) {
         return SOCKET_FAIL;
     }
-
-    int socketID;
 
     if ((sscanf(buffer, "%d", &socketID) != 1) || (socketID < 0) || (socketID > SOCKET_COUNT)) {
         return SOCKET_FAIL;
@@ -678,6 +770,10 @@ bool Sodaq_N3X::socketIsClosed(uint8_t socketID)
 
 size_t Sodaq_N3X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 {
+    char   outBuffer[SODAQ_N3X_MAX_UDP_BUFFER];
+    int    retSocketID;
+    size_t retSize;
+
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
         debugPrintln("Reading from without available bytes!");
@@ -685,10 +781,6 @@ size_t Sodaq_N3X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
     }
 
     size = min(size, min(SODAQ_N3X_MAX_UDP_BUFFER, _socketPendingBytes[socketID]));
-
-    char   outBuffer[SODAQ_N3X_MAX_UDP_BUFFER];
-    int    retSocketID;
-    size_t retSize;
 
     print("AT+USORF=");
     print(socketID);
@@ -720,6 +812,10 @@ size_t Sodaq_N3X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 
 size_t Sodaq_N3X::socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort, const uint8_t* buffer, size_t size)
 {
+    char outBuffer[64];
+    int retSocketID;
+    int sentLength;
+
     if (size > SODAQ_MAX_SEND_MESSAGE_SIZE) {
         debugPrintln("Message exceeded maximum size!");
         return 0;
@@ -744,14 +840,9 @@ size_t Sodaq_N3X::socketSend(uint8_t socketID, const char* remoteHost, const uin
 
     println('"');
 
-    char outBuffer[64];
-
     if (readResponse(outBuffer, sizeof(outBuffer), "+USOST: ", SOCKET_WRITE_TIMEOUT) != GSMResponseOK) {
         return 0;
     }
-
-    int retSocketID;
-    int sentLength;
 
     if ((sscanf(outBuffer, "%d,%d", &retSocketID, &sentLength) != 2) || (retSocketID < 0) || (retSocketID > SOCKET_COUNT)) {
         return 0;
@@ -762,11 +853,13 @@ size_t Sodaq_N3X::socketSend(uint8_t socketID, const char* remoteHost, const uin
 
 bool Sodaq_N3X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 {
+    uint32_t startTime;
+
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
 
-    uint32_t startTime = millis();
+    startTime = millis();
 
     while (!socketHasPendingBytes(socketID) && (millis() - startTime) < timeout) {
         isAlive();
@@ -783,9 +876,9 @@ bool Sodaq_N3X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 
 int8_t Sodaq_N3X::checkApn(const char* requiredAPN)
 {
-    println("AT+CGDCONT?");
-
     char buffer[256];
+
+    println("AT+CGDCONT?");
 
     if (readResponse(buffer, sizeof(buffer), "+CGDCONT: ") != GSMResponseOK) {
         return -1;
@@ -798,8 +891,8 @@ int8_t Sodaq_N3X::checkApn(const char* requiredAPN)
         if (sscanf(buffer + 6, ",\"%[^\"]\",\"%[^\"]\",0,0,0,0", apn, ip) != 2) { return -1; }
 
         if (strcmp(apn, requiredAPN) == 0) {
-            if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) { 
-                return 1; 
+            if (strlen(ip) >= 7 && strcmp(ip, "0.0.0.0") != 0) {
+                return 1;
             }
             else {
                 return 0;
@@ -807,14 +900,14 @@ int8_t Sodaq_N3X::checkApn(const char* requiredAPN)
         }
     }
 
-    return setApn(requiredAPN) ? 0 : -1;
+    return -1;
 }
 
 bool Sodaq_N3X::checkCFUN()
 {
-    println("AT+CFUN?");
-
     char buffer[64];
+
+    println("AT+CFUN?");
 
     if (readResponse(buffer, sizeof(buffer), "+CFUN: ") != GSMResponseOK) {
         return false;
@@ -823,34 +916,13 @@ bool Sodaq_N3X::checkCFUN()
     return (buffer[0] == '1') || setRadioActive(true);
 }
 
-bool Sodaq_N3X::checkCOPS(const char* requiredOperator)
-{
-    println("AT+COPS?");
-
-    char buffer[64];
-
-    if (readResponse(buffer, sizeof(buffer), "+COPS: ", COPS_TIMEOUT) != GSMResponseOK) {
-        return false;
-    }
-
-    if (strcmp(requiredOperator, AUTOMATIC_OPERATOR) == 0) {
-        return (buffer[0] == '0') || execCommand("AT+COPS=0,2", COPS_TIMEOUT);
-    }
-    else if ((buffer[0] == '1') && (strncmp(buffer + 5, requiredOperator, strlen(requiredOperator)) == 0)) {
-        return true;
-    }
-    else {
-        return setOperator(requiredOperator);
-    }
-}
-
 bool Sodaq_N3X::checkURC(char* buffer)
 {
+    int param1, param2;
+
     if (buffer[0] != '+') {
         return false;
     }
-
-    int param1, param2;
 
     if (sscanf(buffer, "+UFOTAS: %d,%d", &param1, &param2) == 2) {
         #ifdef DEBUG
@@ -897,6 +969,12 @@ bool Sodaq_N3X::checkURC(char* buffer)
             _socketClosedBit[param1] = true;
         }
 
+        return true;
+    }
+
+    if (sscanf(buffer, "+CSCON: %d", &param1) == 1) {
+        debugPrint("Unsolicited: Connected ");
+        debugPrintln(param1);
         return true;
     }
 
@@ -961,7 +1039,7 @@ GSMResponseTypes Sodaq_N3X::readResponse(char* outBuffer, size_t outMaxSize, con
         }
 
         if (startsWith(STR_RESPONSE_ERROR, _inputBuffer) ||
-                startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
+                //startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
                 startsWith(STR_RESPONSE_CMS_ERROR, _inputBuffer)) {
             return GSMResponseError;
         }
