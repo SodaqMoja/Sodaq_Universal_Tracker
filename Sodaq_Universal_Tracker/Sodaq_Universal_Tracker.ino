@@ -1003,6 +1003,12 @@ bool getGpsFixAndTransmit()
         return false;
     }
 
+    uint16_t timeBetweenSecs = params.getMinTimeBetweenGpsFix() * 60;
+    if (lastGpsFixTimestamp != 0 && timeBetweenSecs != 0 && ((getNow() - lastGpsFixTimestamp) < timeBetweenSecs)) {
+        debugPrintln("GPS fix too quickly.. skipping")
+        return false;
+    }
+    lastGpsFixTimestamp = getNow();
     bool isSuccessful = false;
     setGpsActive(true);
 
