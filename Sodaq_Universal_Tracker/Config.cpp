@@ -122,6 +122,7 @@ void ConfigParams::reset()
     _accelerationDuration = 0;
     _onTheMoveFixInterval = 1;
     _onTheMoveTimeout = 10;
+    _minTimeBetweenFix = 15; // Getting a GPS fix, and sending out the data is quite expensive. So there should be at least this much time in minutes between every fix. This applies to *all* methods of GPS fixing.
 
     _loraPort = 1;
     _isAdrOn = 1;
