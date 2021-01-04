@@ -112,7 +112,7 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
     }
 }
 
-uint8_t Network::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
+size_t Network::transmit(uint8_t * buffer, size_t size, uint32_t rxTimeout)
 {
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_N2: {

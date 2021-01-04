@@ -128,7 +128,7 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
     return success;
 }
 
-uint8_t R4xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
+size_t R4xNetwork::transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout)
 {
     if(!setActive(true)) {
         return false;

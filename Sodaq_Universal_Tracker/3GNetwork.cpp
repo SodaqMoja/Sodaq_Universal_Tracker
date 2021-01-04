@@ -123,7 +123,7 @@ bool Network3G::setActive(bool on)
     return success;
 }
 
-uint8_t Network3G::transmit(uint8_t * buffer, uint8_t size, uint32_t rxTimeout)
+size_t Network3G::transmit(uint8_t * buffer, size_t size, uint32_t rxTimeout)
 {
     if(!setActive(true)) {
         return false;
