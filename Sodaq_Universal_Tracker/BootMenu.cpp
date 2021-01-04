@@ -130,10 +130,10 @@ static const Command args[] = {
     { "Reset DevAddr / DevEUI to the Hardware EUI", "EUI", resetDevAddrOrEUItoHWEUI, Command::show_string },
     { "Reset LoRa                                ", "RESET", resetLora, Command::show_string },
 #elif defined(ARDUINO_SODAQ_SARA) || defined(ARDUINO_SODAQ_SFF)
-    { "Show IMEI                                 ", "SI", showImei, Command::show_string },
-    { "Show CCID                                 ", "SC", showCcid, Command::show_string },
-    { "Show IMSI                                 ", "SM", showImsi, Command::show_string },
-    { "Show Module version                       ", "SV", showModuleVersion, Command::show_string },
+    { "Show IMEI                                 ", "IMEI", showImei, Command::show_string },
+    { "Show CCID                                 ", "CCID", showCcid, Command::show_string },
+    { "Show IMSI                                 ", "IMSI", showImsi, Command::show_string },
+    { "Show Module version                       ", "SMV", showModuleVersion, Command::show_string },
 #endif
     { "Commit Settings                           ", "CS", commitSettings, Command::show_string }
 };
