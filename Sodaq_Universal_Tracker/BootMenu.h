@@ -42,5 +42,6 @@ void setResetLoraCallback(VoidCallbackMethodPtr callback);
 void setShowImeiCallback(VoidCallbackMethodPtr callback);
 void setShowModuleVersionCallback(VoidCallbackMethodPtr callback);
 void setShowCcidCallback(VoidCallbackMethodPtr callback);
+void setShowImsiCallback(VoidCallbackMethodPtr callback);
 
 #endif

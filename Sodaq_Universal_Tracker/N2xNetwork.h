@@ -62,6 +62,7 @@ public:
     uint32_t getBaudRate();
     bool getIMEI(char* buffer, size_t size);
     bool getCCID(char* buffer, size_t size);
+    bool getIMSI(char* buffer, size_t size);
     bool getModuleVersion(char* buffer, size_t size);
 private:
     DataReceiveCallback _callback;

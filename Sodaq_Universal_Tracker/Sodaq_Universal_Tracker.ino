@@ -639,6 +639,7 @@ void handleBootUpCommands()
     setResetLoraCallback(resetLora);
     setShowImeiCallback(showImei);
     setShowCcidCallback(showCcid);
+    setShowImsiCallback(showImsi);
     setShowModuleVersionCallback(showModuleVersion);
 
     do {
@@ -674,10 +675,28 @@ void showCcid()
     network.setConsoleStream(CONSOLE_STREAM);
     network.setNetworkType((Network::NetworkType)params.getNetworkType());
     network.init(MODEM_STREAM, updateConfigOverTheAir, getNow, INIT_SHOW_CONSOLE_MESSAGES, INIT_SKIP_JOIN);
-
+    network.setActive(true);
     consolePrintln("Modem initialized.");
     consolePrint("CCID: ");
     consolePrintln(network.getCCID());
+
+    consolePrintln("Please note that the modem is now initialized.");
+    consolePrintln("*** If you need to change the type of network please reboot first.");
+
+    network.setActive(false);
+}
+
+void showImsi()
+{
+    consolePrintln("Initializing modem...");
+    network.setDiag(DEBUG_STREAM);
+    network.setConsoleStream(CONSOLE_STREAM);
+    network.setNetworkType((Network::NetworkType)params.getNetworkType());
+    network.init(MODEM_STREAM, updateConfigOverTheAir, getNow, INIT_SHOW_CONSOLE_MESSAGES, INIT_SKIP_JOIN);
+    network.setActive(true);
+    consolePrintln("Modem initialized.");
+    consolePrint("IMSI: ");
+    consolePrintln(network.getIMSI());
 
     consolePrintln("Please note that the modem is now initialized.");
     consolePrintln("*** If you need to change the type of network please reboot first.");
