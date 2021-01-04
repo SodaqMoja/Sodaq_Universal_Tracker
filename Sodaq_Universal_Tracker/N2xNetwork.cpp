@@ -115,7 +115,7 @@ bool N2xNetwork::setActive(bool on, bool needCheckConnection)
     return success;
 }
 
-uint8_t N2xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
+size_t N2xNetwork::transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout)
 {
     if(!setActive(true)) {
         return false;

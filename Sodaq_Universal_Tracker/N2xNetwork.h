@@ -47,7 +47,7 @@ public:
     */
     bool setActive(bool on, bool needCheckConnection = true);
 
-    uint8_t transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout);
+    size_t transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout);
 
     void loopHandler();
 
