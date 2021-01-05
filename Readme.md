@@ -57,7 +57,6 @@ Cellular
   APN user                   (apnu=):
   APN password               (apnp=):
   Band Info                  (bnd=): 524416
-  Bands (N3xx NB-IoT only)   (bns=): 1800,850,900,800,700
   Target IP                  (ip=): 0.0.0.0
   Target port                (prt=): 1
   Response Timeout           (rxto=): 15
@@ -152,7 +151,7 @@ The Lora frame contains the following data. The minimum frame size is 21 bytes, 
 
 ### Band settings
 
-From 1.0.4 there is support for multiband selection.
+There is support for multiband selection.
 
 Bands 8 and 20 can be set for the N2XX by bnd=8,20
 Band Info                (bnd=): 8,20
@@ -160,6 +159,9 @@ Band Info                (bnd=): 8,20
 Bands 8 and 20 can be set for the R4XX by bnd=524416
 524416 is the decimal presentation of the 8th and 20th bit. 10000000000010000000
 Band Info                (bnd=): 524416
+
+Bands 8 and 20 can be set for the N3XX by bnd=900,800
+Band Info                (bnd=): 900,800
 
 ### LoRa Connection
 
