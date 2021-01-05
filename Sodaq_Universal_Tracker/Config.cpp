@@ -103,6 +103,9 @@ void ConfigParams::reset()
     memset(_band, 0x30, sizeof(_band) - 1);
     _band[sizeof(_band) - 1] = '\0';
 
+    memset(_bandSel, 0x30, sizeof(_bandSel) - 1);
+    _band[sizeof(_bandSel) - 1] = '\0';
+
     _rxTimeout = 15;
 
     memcpy(_targetIP, "0.0.0.0", sizeof("0.0.0.0"));
@@ -162,56 +165,57 @@ void ConfigParams::commit(bool forced)
 }
 
 static const Command args[] = {
-    { "GPS                       ", 0,      0,                  Command::show_title, 0 },
-    { "Fix Interval (min)        ", "fi=", Command::set_uint16, Command::show_uint16, &params._defaultFixInterval },
-    { "Alt. Fix Interval (min)   ", "afi=", Command::set_uint16, Command::show_uint16, &params._alternativeFixInterval },
-    { "Alt. Fix From (HH)        ", "affh=", Command::set_uint8, Command::show_uint8, &params._alternativeFixFromHours },
-    { "Alt. Fix From (MM)        ", "affm=", Command::set_uint8, Command::show_uint8, &params._alternativeFixFromMinutes },
-    { "Alt. Fix To (HH)          ", "afth=", Command::set_uint8, Command::show_uint8, &params._alternativeFixToHours },
-    { "Alt. Fix To (MM)          ", "aftm=", Command::set_uint8, Command::show_uint8, &params._alternativeFixToMinutes },
-    { "GPS Fix Timeout (sec)     ", "gft=", Command::set_uint8, Command::show_uint8, &params._gpsFixTimeout },
-    { "Minimum sat count         ", "sat=", Command::set_uint8, Command::show_uint8, &params._gpsMinSatelliteCount },
-    { "Num Coords to Upload      ", "num=", Command::set_uint8, Command::show_uint8, &params._coordinateUploadCount },
-    { "On-the-move Functionality ", 0,      0,                  Command::show_title, 0 },
-    { "Acceleration% (100% = 8g) ", "acc=", Command::set_uint8, Command::show_uint8, &params._accelerationPercentage },
-    { "Acceleration Duration     ", "acd=", Command::set_uint8, Command::show_uint8, &params._accelerationDuration },
-    { "Fix Interval (min)        ", "acf=", Command::set_uint8, Command::show_uint8, &params._onTheMoveFixInterval },
-    { "Timeout (min)             ", "act=", Command::set_uint8, Command::show_uint8, &params._onTheMoveTimeout },
+    { "GPS                       ", 0,      0,                  Command::show_title, 0, 0 },
+    { "Fix Interval (min)        ", "fi=", Command::set_uint16, Command::show_uint16, &params._defaultFixInterval, 0 },
+    { "Alt. Fix Interval (min)   ", "afi=", Command::set_uint16, Command::show_uint16, &params._alternativeFixInterval, 0 },
+    { "Alt. Fix From (HH)        ", "affh=", Command::set_uint8, Command::show_uint8, &params._alternativeFixFromHours, 0 },
+    { "Alt. Fix From (MM)        ", "affm=", Command::set_uint8, Command::show_uint8, &params._alternativeFixFromMinutes, 0 },
+    { "Alt. Fix To (HH)          ", "afth=", Command::set_uint8, Command::show_uint8, &params._alternativeFixToHours, 0 },
+    { "Alt. Fix To (MM)          ", "aftm=", Command::set_uint8, Command::show_uint8, &params._alternativeFixToMinutes, 0 },
+    { "GPS Fix Timeout (sec)     ", "gft=", Command::set_uint16, Command::show_uint16, &params._gpsFixTimeout, 0 },
+    { "Minimum sat count         ", "sat=", Command::set_uint8, Command::show_uint8, &params._gpsMinSatelliteCount, 0 },
+    { "Num Coords to Upload      ", "num=", Command::set_uint8, Command::show_uint8, &params._coordinateUploadCount, 0 },
+    { "On-the-move Functionality ", 0,      0,                  Command::show_title, 0, 0 },
+    { "Acceleration% (100% = 8g) ", "acc=", Command::set_uint8, Command::show_uint8, &params._accelerationPercentage, 0 },
+    { "Acceleration Duration     ", "acd=", Command::set_uint8, Command::show_uint8, &params._accelerationDuration, 0 },
+    { "Fix Interval (min)        ", "acf=", Command::set_uint8, Command::show_uint8, &params._onTheMoveFixInterval, 0 },
+    { "Timeout (min)             ", "act=", Command::set_uint8, Command::show_uint8, &params._onTheMoveTimeout, 0 },
 #if defined(ARDUINO_SODAQ_ONE)
-    { "LoRa                      ", 0,      0,                  Command::show_title, 0 },
-    { "OTAA Mode (OFF=0 / ON=1)  ", "otaa=", Command::set_uint8, Command::show_uint8, &params._isOtaaEnabled },
-    { "Retry conn. (OFF=0 / ON=1)", "retry=", Command::set_uint8, Command::show_uint8, &params._shouldRetryConnectionOnSend },
-    { "ADR (OFF=0 / ON=1)        ", "adr=", Command::set_uint8, Command::show_uint8, &params._isAdrOn },
-    { "ACK (OFF=0 / ON=1)        ", "ack=", Command::set_uint8, Command::show_uint8, &params._isAckOn },
-    { "Spreading Factor          ", "sf=", Command::set_uint8, Command::show_uint8, &params._spreadingFactor },
-    { "Output Index              ", "pwr=", Command::set_uint8, Command::show_uint8, &params._powerIndex },
-    { "Lora Port                 ", "lprt=", Command::set_uint8, Command::show_uint8, &params._loraPort },
+    { "LoRa                      ", 0,      0,                  Command::show_title, 0, 0 },
+    { "OTAA Mode (OFF=0 / ON=1)  ", "otaa=", Command::set_uint8, Command::show_uint8, &params._isOtaaEnabled, 0 },
+    { "Retry conn. (OFF=0 / ON=1)", "retry=", Command::set_uint8, Command::show_uint8, &params._shouldRetryConnectionOnSend, 0 },
+    { "ADR (OFF=0 / ON=1)        ", "adr=", Command::set_uint8, Command::show_uint8, &params._isAdrOn, 0 },
+    { "ACK (OFF=0 / ON=1)        ", "ack=", Command::set_uint8, Command::show_uint8, &params._isAckOn, 0 },
+    { "Spreading Factor          ", "sf=", Command::set_uint8, Command::show_uint8, &params._spreadingFactor, 0 },
+    { "Output Index              ", "pwr=", Command::set_uint8, Command::show_uint8, &params._powerIndex, 0 },
+    { "Lora Port                 ", "lprt=", Command::set_uint8, Command::show_uint8, &params._loraPort, 0 },
     { "DevAddr / DevEUI          ", "dev=", Command::set_string, Command::show_string, params._devAddrOrEUI, sizeof(params._devAddrOrEUI) },
     { "AppSKey / AppEUI          ", "app=", Command::set_string, Command::show_string, params._appSKeyOrEUI, sizeof(params._appSKeyOrEUI) },
     { "NWSKey / AppKey           ", "key=", Command::set_string, Command::show_string, params._nwSKeyOrAppKey, sizeof(params._nwSKeyOrAppKey) },
-    { "Repeat Count              ", "rep=", Command::set_uint8, Command::show_uint8, &params._repeatCount },
+    { "Repeat Count              ", "rep=", Command::set_uint8, Command::show_uint8, &params._repeatCount, 0 },
 #elif defined(ARDUINO_SODAQ_SFF) || defined (ARDUINO_SODAQ_SARA)
-    { "Cellular                  ", 0,      0,                  Command::show_title, 0 },
-    { "Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, R4xx LTE-M = 4, R412 2G = 5, 2G/3G = 6) ", "ntype=", Command::set_uint8, Command::show_uint8, &params._networkType },
+    { "Cellular                  ", 0,      0,                  Command::show_title, 0, 0 },
+    { "Network Type (N2xx NB-IoT = 2, N3xx NB-IoT = 3, R4xx NB-IoT = 4, R4xx LTE-M = 5, R412 2G = 6, 2G/3G = 7)", "ntype=", Command::set_uint8, Command::show_uint8, &params._networkType, 0 },
     { "All Things Talk Token     ", "att=", Command::set_string, Command::show_string, params._attToken, sizeof(params._attToken) },
     { "APN                       ", "apn=", Command::set_string, Command::show_string, params._apn, sizeof(params._apn) },
     { "Force Operator            ", "opr=", Command::set_string, Command::show_string, params._forceOperator, sizeof(params._forceOperator) },
-    { "CID                       ", "cid=", Command::set_uint8, Command::show_uint8, &params._cid },
-    { "MNO Profile               ", "mno=", Command::set_uint8, Command::show_uint8, &params._mnoProfile },
+    { "CID                       ", "cid=", Command::set_uint8, Command::show_uint8, &params._cid, 0 },
+    { "MNO Profile               ", "mno=", Command::set_uint8, Command::show_uint8, &params._mnoProfile, 0 },
     { "APN user                  ", "apnu=", Command::set_string, Command::show_string, params._apnUser, sizeof(params._apnUser) },
     { "APN password              ", "apnp=", Command::set_string, Command::show_string, params._apnPassword, sizeof(params._apnPassword) },
     { "Band Info                 ", "bnd=", Command::set_string,  Command::show_string, params._band, sizeof(params._band) },
+    { "Bands (N3xx NB-IoT only)  ", "bns=", Command::set_string, Command::show_string, params._bandSel, sizeof(params._bandSel) },
     { "Target IP or DNS          ", "ip=",  Command::set_string, Command::show_string, params._targetIP, sizeof(params._targetIP) },
-    { "Target port               ", "prt=", Command::set_uint16, Command::show_uint16, &params._targetPort },
-    { "Response Timeout          ", "rxto=", Command::set_uint8, Command::show_uint8, &params._rxTimeout },
+    { "Target port               ", "prt=", Command::set_uint16, Command::show_uint16, &params._targetPort, 0 },
+    { "Response Timeout          ", "rxto=", Command::set_uint8, Command::show_uint8, &params._rxTimeout, 0 },
 #endif
-    { "Misc                      ", 0,      0,                  Command::show_title, 0 },
+    { "Misc                      ", 0,      0,                  Command::show_title, 0, 0 },
 #if defined(ARDUINO_SODAQ_ONE)
-    { "Cayenne LPP (OFF=0 / ON=1)", "cay=", Command::set_uint8, Command::show_uint8, &params._isCayennePayloadEnabled },
+    { "Cayenne LPP (OFF=0 / ON=1)", "cay=", Command::set_uint8, Command::show_uint8, &params._isCayennePayloadEnabled, 0 },
 #endif
-    { "Status LED (OFF=0 / ON=1) ", "led=", Command::set_uint8, Command::show_uint8, &params._isLedEnabled },
+    { "Status LED (OFF=0 / ON=1) ", "led=", Command::set_uint8, Command::show_uint8, &params._isLedEnabled, 0 },
 
-    { "Debug (OFF=0 / ON=1)      ", "dbg=", Command::set_uint8, Command::show_uint8, &params._isDebugOn }
+    { "Debug (OFF=0 / ON=1)      ", "dbg=", Command::set_uint8, Command::show_uint8, &params._isDebugOn, 0 }
 };
 
 void ConfigParams::showConfig(Stream* stream)

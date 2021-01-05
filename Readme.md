@@ -48,7 +48,7 @@ On-the-move Functionality
   Timeout (min)              (act=): 10
 
 Cellular
-  Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, R4xx LTE-M = 4, R412 2G = 5, 2G/3G = 6)  (ntype=): 0
+  Network Type (N2xx NB-IoT = 2, N3xx NB-IoT = 3, R4xx NB-IoT = 4, R4xx LTE-M = 5, R412 2G = 6, 2G/3G = 7) (ntype=): 0
   All Things Talk Token      (att=):
   APN                        (apn=): nb.inetd.gdsp
   Force Operator             (opr=): 0
@@ -57,6 +57,7 @@ Cellular
   APN user                   (apnu=):
   APN password               (apnp=):
   Band Info                  (bnd=): 524416
+  Bands (N3xx NB-IoT only)   (bns=): 1800,850,900,800,700
   Target IP                  (ip=): 0.0.0.0
   Target port                (prt=): 1
   Response Timeout           (rxto=): 15

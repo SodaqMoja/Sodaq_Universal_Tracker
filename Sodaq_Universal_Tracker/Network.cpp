@@ -44,6 +44,7 @@ POSSIBILITY OF SUCH DAMAGE.
 
 LoraNetwork loraNetwork;
 N2xNetwork  n2xNetwork;
+N3xNetwork  n3xNetwork;
 R4xNetwork  r4xNetwork;
 Network3G   network3G;
 
@@ -69,6 +70,17 @@ bool Network::init(Uart & modemStream, DataReceiveCallback callback, uint32_t(*g
         }
 
         return n2xNetwork.init(modemStream, callback, messages, join);
+    }
+    case NETWORK_TYPE_NBIOT_N3: {
+        if (_diagStream) {
+            n3xNetwork.setDiag(_diagStream);
+        }
+
+        if (_consoleStream) {
+            n3xNetwork.setConsoleStream(_consoleStream);
+        }
+
+        return n3xNetwork.init(modemStream, callback, messages, join);
     }
     case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_LTEM_R4:
@@ -120,6 +132,9 @@ size_t Network::transmit(uint8_t * buffer, size_t size, uint32_t rxTimeout)
     case NETWORK_TYPE_NBIOT_N2: {
         return n2xNetwork.transmit(buffer, size, rxTimeout);
     }
+    case NETWORK_TYPE_NBIOT_N3: {
+        return n3xNetwork.transmit(buffer, size, rxTimeout);
+    }
     case NETWORK_TYPE_NBIOT_R4:
     case NETWORK_TYPE_LTEM_R4:
     case NETWORK_TYPE_2G_R4: {
@@ -143,6 +158,10 @@ void Network::loopHandler()
     switch (_networkType) {
     case NETWORK_TYPE_NBIOT_N2: {
         n2xNetwork.loopHandler();
+        break;
+    }
+    case NETWORK_TYPE_NBIOT_N3: {
+        n3xNetwork.loopHandler();
         break;
     }
     case NETWORK_TYPE_NBIOT_R4:
@@ -171,6 +190,10 @@ void Network::sleep()
     switch (_networkType) {
         case NETWORK_TYPE_NBIOT_N2: {
             n2xNetwork.sleep();
+            break;
+        }
+        case NETWORK_TYPE_NBIOT_N3: {
+            n3xNetwork.sleep();
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
@@ -202,6 +225,10 @@ bool Network::setActive(bool on)
             success = n2xNetwork.setActive(on);
             break;
         }
+        case NETWORK_TYPE_NBIOT_N3: {
+            success = n3xNetwork.setActive(on);
+            break;
+        }
         case NETWORK_TYPE_NBIOT_R4:
         case NETWORK_TYPE_LTEM_R4:
         case NETWORK_TYPE_2G_R4: {
@@ -229,6 +256,9 @@ uint32_t Network::getBaudRate()
     switch (_networkType) {
         case NETWORK_TYPE_NBIOT_N2: {
             return n2xNetwork.getBaudRate();
+        }
+        case NETWORK_TYPE_NBIOT_N3: {
+            return n3xNetwork.getBaudRate();
         }
         case NETWORK_TYPE_NBIOT_R4:
         case NETWORK_TYPE_LTEM_R4:
@@ -272,6 +302,10 @@ const char* Network::getIMEI()
                 success = n2xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
+            case NETWORK_TYPE_NBIOT_N3: {
+                success = n3xNetwork.getIMEI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
             case NETWORK_TYPE_NBIOT_R4:
             case NETWORK_TYPE_LTEM_R4:
             case NETWORK_TYPE_2G_R4: {
@@ -313,6 +347,10 @@ const char* Network::getCCID()
         switch (_networkType) {
             case NETWORK_TYPE_NBIOT_N2: {
                 success = n2xNetwork.getCCID(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
+            case NETWORK_TYPE_NBIOT_N3: {
+                success = n3xNetwork.getCCID(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
             case NETWORK_TYPE_NBIOT_R4:
@@ -399,6 +437,10 @@ const char* Network::getModuleVersion()
         switch (_networkType) {
         case NETWORK_TYPE_NBIOT_N2: {
             success = n2xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
+            break;
+        }
+        case NETWORK_TYPE_NBIOT_N3: {
+            success = n3xNetwork.getModuleVersion(tmpBuffer, sizeof(tmpBuffer));
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
