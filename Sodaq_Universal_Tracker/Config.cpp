@@ -103,9 +103,6 @@ void ConfigParams::reset()
     memset(_band, 0x30, sizeof(_band) - 1);
     _band[sizeof(_band) - 1] = '\0';
 
-    memset(_bandSel, 0x30, sizeof(_bandSel) - 1);
-    _band[sizeof(_bandSel) - 1] = '\0';
-
     _rxTimeout = 15;
 
     memcpy(_targetIP, "0.0.0.0", sizeof("0.0.0.0"));
@@ -204,7 +201,6 @@ static const Command args[] = {
     { "APN user                  ", "apnu=", Command::set_string, Command::show_string, params._apnUser, sizeof(params._apnUser) },
     { "APN password              ", "apnp=", Command::set_string, Command::show_string, params._apnPassword, sizeof(params._apnPassword) },
     { "Band Info                 ", "bnd=", Command::set_string,  Command::show_string, params._band, sizeof(params._band) },
-    { "Bands (N3xx NB-IoT only)  ", "bns=", Command::set_string, Command::show_string, params._bandSel, sizeof(params._bandSel) },
     { "Target IP or DNS          ", "ip=",  Command::set_string, Command::show_string, params._targetIP, sizeof(params._targetIP) },
     { "Target port               ", "prt=", Command::set_uint16, Command::show_uint16, &params._targetPort, 0 },
     { "Response Timeout          ", "rxto=", Command::set_uint8, Command::show_uint8, &params._rxTimeout, 0 },

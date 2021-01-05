@@ -101,7 +101,7 @@ bool N2xNetwork::setActive(bool on, bool needCheckConnection)
         return true;
     }
 
-    success = n2x.connect(params._apn, NULL, params._forceOperator, params._band);
+    success = n2x.connect(params.getApn(), NULL, params.getForceOperator(), params.getBand());
     if (!success) {
         n2x.off();
         sodaq_wdt_safe_delay(450);
@@ -109,9 +109,9 @@ bool N2xNetwork::setActive(bool on, bool needCheckConnection)
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        success = n2x.connect(params._apn, NULL, params._forceOperator, params._band);
+        success = n2x.connect(params.getApn(), NULL, params.getForceOperator(), params.getBand());
     }
-    
+
     return success;
 }
 

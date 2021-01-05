@@ -73,7 +73,6 @@ struct ConfigParams
     char _apnPassword[32 + 1];
 
     char _band[36 + 1];
-    char _bandSel[32 + 1];
     uint8_t _rxTimeout;
 
     char _targetIP[50]; // IP or DNS = 50 
@@ -139,7 +138,6 @@ public:
     uint8_t getMnoProfile() const { return _mnoProfile; }
 
     const char* getBand() const { return _band; }
-    const char* getBandSel() const { return _bandSel; }
     uint8_t getRXtimeout() const { return _rxTimeout; }
 
     const char* getTargetIP() const { return _targetIP; }
