@@ -116,6 +116,7 @@ Network network;
 #define DEFAULT_FORCE_OPERATOR "0" // Use "0" for auto operator
 #define DEFAULT_BAND "524416" // R4X bandmask for band 8,20
 // #define DEFAULT_BAND "8,20" // N2X select bands 8 and 20
+// #define DEFAULT_BAND "900,800" // N3X Band Selection 8 and 20
 
 #define DEFAULT_APN_USER ""
 #define DEFAULT_APN_PASSWORD ""

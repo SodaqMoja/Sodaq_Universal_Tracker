@@ -48,7 +48,7 @@ On-the-move Functionality
   Timeout (min)              (act=): 10
 
 Cellular
-  Network Type (N2xx NB-IoT = 2, R4xx NB-IoT = 3, R4xx LTE-M = 4, R412 2G = 5, 2G/3G = 6)  (ntype=): 0
+  Network Type (N2xx NB-IoT = 2, N3xx NB-IoT = 3, R4xx NB-IoT = 4, R4xx LTE-M = 5, R412 2G = 6, 2G/3G = 7) (ntype=): 0
   All Things Talk Token      (att=):
   APN                        (apn=): nb.inetd.gdsp
   Force Operator             (opr=): 0
@@ -151,7 +151,7 @@ The Lora frame contains the following data. The minimum frame size is 21 bytes, 
 
 ### Band settings
 
-From 1.0.4 there is support for multiband selection.
+There is support for multiband selection.
 
 Bands 8 and 20 can be set for the N2XX by bnd=8,20
 Band Info                (bnd=): 8,20
@@ -159,6 +159,9 @@ Band Info                (bnd=): 8,20
 Bands 8 and 20 can be set for the R4XX by bnd=524416
 524416 is the decimal presentation of the 8th and 20th bit. 10000000000010000000
 Band Info                (bnd=): 524416
+
+Bands 8 and 20 can be set for the N3XX by bnd=900,800
+Band Info                (bnd=): 900,800
 
 ### LoRa Connection
 

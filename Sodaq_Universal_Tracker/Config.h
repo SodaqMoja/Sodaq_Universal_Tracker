@@ -72,7 +72,7 @@ struct ConfigParams
     char _apnUser[32 + 1];
     char _apnPassword[32 + 1];
 
-    char _band[36 + 1];
+    char _band[50 + 1];
     uint8_t _rxTimeout;
 
     char _targetIP[50]; // IP or DNS = 50 

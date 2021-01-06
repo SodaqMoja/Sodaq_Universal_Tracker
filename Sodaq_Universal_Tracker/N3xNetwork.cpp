@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2019, SODAQ
+Copyright (c) 2020, SODAQ
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -29,10 +29,10 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "Sodaq_N2X.h"
+#include "Sodaq_N3X.h"
 #include "Sodaq_wdt.h"
 #include "Config.h"
-#include "N2xNetwork.h"
+#include "N3xNetwork.h"
 
 #define DEBUG
 
@@ -51,71 +51,71 @@ POSSIBILITY OF SUCH DAMAGE.
 #endif
 
 // BEGIN NBiot DEFINES
-static Sodaq_N2X n2x;
-static Sodaq_SARA_N211_OnOff saraN211OnOff;
+static Sodaq_N3X n3x;
+static Sodaq_SARA_N310_OnOff saraN310OnOff;
 // END NBiot DEFINES
 
 /**
-Initializes the N2X module according to the given operation (join or skip).
+Initializes the n3x module according to the given operation (join or skip).
 Returns true if the operation was successful.
 */
-bool N2xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join)
+bool N3xNetwork::init(Uart & modemStream, DataReceiveCallback callback, InitConsoleMessages messages, InitJoin join)
 {
     _callback = callback;
 
     if (messages == INIT_SHOW_CONSOLE_MESSAGES) {
-        consolePrintln("Initializing N2X...");
+        consolePrintln("Initializing N3X...");
     }
 
     if (_diagStream != _consoleStream || messages != INIT_SHOW_CONSOLE_MESSAGES) {
-        debugPrintLn("Initializing N2X...");
+        debugPrintLn("Initializing N3X...");
     }
 
     if (params.getIsDebugOn() && _diagStream) {
-        n2x.setDiag(_diagStream);
+        n3x.setDiag(_diagStream);
     }
 
-    modemStream.begin(n2x.getDefaultBaudrate());
-    n2x.init(&saraN211OnOff, modemStream, params.getCID());
+    modemStream.begin(n3x.getDefaultBaudrate());
+    n3x.init(&saraN310OnOff, modemStream, params.getCID());
 
     if (join == INIT_JOIN) {
         setActive(true, false);
     }
     else {
-        n2x.on();
-        n2x.purgeAllResponsesRead();
+        n3x.on();
+        n3x.purgeAllResponsesRead();
     }
 
-    return n2x.isAlive();
+    return n3x.isAlive();
 }
 
 /**
 * Turns the nbiot module on or off (and connects/disconnects)
 */
-bool N2xNetwork::setActive(bool on, bool needCheckConnection)
+bool N3xNetwork::setActive(bool on, bool needCheckConnection)
 {
     sodaq_wdt_reset();
     bool success = false;
 
-    if (!on || (needCheckConnection && n2x.isConnected())) {
+    if (!on || (needCheckConnection && n3x.isConnected())) {
         return true;
     }
 
-    success = n2x.connect(params.getApn(), NULL, params.getForceOperator(), params.getBand());
+    success = n3x.connect(params.getApn(), params.getForceOperator(), params.getBand());
     if (!success) {
-        n2x.off();
+        n3x.off();
         sodaq_wdt_safe_delay(450);
-        n2x.on();
+        n3x.on();
         sodaq_wdt_safe_delay(450);
 
         // try just one last time
-        success = n2x.connect(params.getApn(), NULL, params.getForceOperator(), params.getBand());
+        success = n3x.connect(params.getApn(), params.getForceOperator(), params.getBand());
     }
 
     return success;
 }
 
-size_t N2xNetwork::transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout)
+uint8_t N3xNetwork::transmit(uint8_t* buffer, uint8_t size, uint32_t rxTimeout)
 {
     if(!setActive(true)) {
         return false;
@@ -123,24 +123,24 @@ size_t N2xNetwork::transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout)
 
     debugPrintLn("\n\rSending message through UDP");
 
-    int socketID = n2x.socketCreate(16666);
+    int socketID = n3x.socketCreate(16666);
 
     if (socketID < 0 || socketID >= 7) {
         debugPrintLn("Failed to create socket");
         return false;
     }
 
-    size_t lengthSent = n2x.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
+    size_t lengthSent = n3x.socketSend(socketID, params.getTargetIP(), params.getTargetPort(), buffer, size);
 
     // wait for data
-    if (n2x.socketWaitForReceive(socketID, rxTimeout)) {
+    if (n3x.socketWaitForReceive(socketID, rxTimeout)) {
         debugPrintLn("Received UDP response...");
 
         uint32_t startTime = millis();
 
-        while (n2x.socketHasPendingBytes(socketID) && (millis() - startTime) < 20000) {
+        while (n3x.socketHasPendingBytes(socketID) && (millis() - startTime) < 20000) {
             uint8_t data[128];
-            int size = n2x.socketReceive(socketID, data, sizeof(data));
+            int size = n3x.socketReceive(socketID, data, sizeof(data));
             if (size) {
                 _callback(data, size);
                 startTime = millis();
@@ -154,7 +154,7 @@ size_t N2xNetwork::transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout)
         debugPrintLn("Timed-out waiting for UDP Response!");
     }
 
-    n2x.socketClose(socketID);
+    n3x.socketClose(socketID);
     debugPrintLn();
 
     setActive(false);
@@ -162,31 +162,26 @@ size_t N2xNetwork::transmit(uint8_t* buffer, size_t size, uint32_t rxTimeout)
     return lengthSent;
 }
 
-void N2xNetwork::loopHandler() {}
+void N3xNetwork::loopHandler() {}
 
-void N2xNetwork::sleep() {}
+void N3xNetwork::sleep() {}
 
-uint32_t N2xNetwork::getBaudRate()
+uint32_t N3xNetwork::getBaudRate()
 {
-    return n2x.getDefaultBaudrate();
+    return n3x.getDefaultBaudrate();
 }
 
-bool N2xNetwork::getIMEI(char* buffer, size_t size)
+bool N3xNetwork::getIMEI(char* buffer, size_t size)
 {
-    return n2x.getIMEI(buffer, size);
+    return n3x.getIMEI(buffer, size);
 }
 
-bool N2xNetwork::getCCID(char* buffer, size_t size)
+bool N3xNetwork::getCCID(char* buffer, size_t size)
 {
-    return n2x.getCCID(buffer, size);
+    return n3x.getCCID(buffer, size);
 }
 
-bool N2xNetwork::getIMSI(char* buffer, size_t size)
+bool N3xNetwork::getModuleVersion(char* buffer, size_t size)
 {
-    return n2x.getIMSI(buffer, size);
-}
-
-bool N2xNetwork::getModuleVersion(char* buffer, size_t size)
-{
-    return n2x.getFirmwareRevision(buffer, size);
+    return n3x.getFirmwareRevision(buffer, size);
 }
