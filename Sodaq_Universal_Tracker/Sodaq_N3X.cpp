@@ -933,19 +933,6 @@ bool Sodaq_N3X::checkURC(char* buffer)
         return true;
     }
 
-    if (sscanf(buffer, "+UUSORD: %d,%d", &param1, &param2) == 2) {
-        debugPrint("Unsolicited: Socket ");
-        debugPrint(param1);
-        debugPrint(": ");
-        debugPrintln(param2);
-
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
-            _socketPendingBytes[param1] = param2;
-        }
-
-        return true;
-    }
-
     if (sscanf(buffer, "+UUSORF: %d,%d", &param1, &param2) == 2) {
         debugPrint("Unsolicited: Socket ");
         debugPrint(param1);
