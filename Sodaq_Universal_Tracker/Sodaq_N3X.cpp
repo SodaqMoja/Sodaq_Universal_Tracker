@@ -783,15 +783,13 @@ size_t Sodaq_N3X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
     size = min(size, min(SODAQ_N3X_MAX_UDP_BUFFER, _socketPendingBytes[socketID]));
 
     print("AT+USORF=");
-    print(socketID);
-    print(',');
-    println(size);
+    println(socketID);
 
     if (readResponse(outBuffer, sizeof(outBuffer)) != GSMResponseOK) {
         return 0;
     }
 
-    if (sscanf(outBuffer, "%d,\"%*[^\"]\",%*d,%d,\"%[^\"]\",%*d", &retSocketID, &retSize, outBuffer) != 3) {
+    if (sscanf(outBuffer, "+USORF: %d,\"%*[^\"]\",%*d,%d,\"%[^\"]\"", &retSocketID, &retSize, outBuffer) != 3) {
         return 0;
     }
 
@@ -935,19 +933,6 @@ bool Sodaq_N3X::checkURC(char* buffer)
         return true;
     }
 
-    if (sscanf(buffer, "+UUSORD: %d,%d", &param1, &param2) == 2) {
-        debugPrint("Unsolicited: Socket ");
-        debugPrint(param1);
-        debugPrint(": ");
-        debugPrintln(param2);
-
-        if (param1 >= 0 && param1 < SOCKET_COUNT) {
-            _socketPendingBytes[param1] = param2;
-        }
-
-        return true;
-    }
-
     if (sscanf(buffer, "+UUSORF: %d,%d", &param1, &param2) == 2) {
         debugPrint("Unsolicited: Socket ");
         debugPrint(param1);
@@ -955,7 +940,7 @@ bool Sodaq_N3X::checkURC(char* buffer)
         debugPrintln(param2);
 
         if (param1 >= 0 && param1 < SOCKET_COUNT) {
-            _socketPendingBytes[param1] = param2;
+            _socketPendingBytes[param1] += param2;
         }
 
         return true;
