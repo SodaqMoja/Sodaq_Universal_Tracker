@@ -45,6 +45,5 @@ jobs:
       - name: Build application
         env:
           PLATFORMIO_CI_SRC: ${{ matrix.example }}
-          PLATFORMIO_CI_EXTRA_ARGS: "--board=${{ matrix.board }}"
         run: |
-          pio ci
+          pio ci --board=${{ matrix.board }}
