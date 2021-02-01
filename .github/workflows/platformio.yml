@@ -47,4 +47,4 @@ jobs:
           PLATFORMIO_CI_SRC: ${{ matrix.example }}
           PLATFORMIO_CI_EXTRA_ARGS: "--board=${{ matrix.board }}"
         run: |
-          pio ci --project-conf platformio.ini
+          pio ci
