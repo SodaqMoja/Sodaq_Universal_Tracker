@@ -1,3 +1,5 @@
+[![CI](https://github.com/SodaqMoja/Sodaq_Universal_Tracker/actions/workflows/platformio.yml/badge.svg)](https://github.com/SodaqMoja/Sodaq_Universal_Tracker/actions/workflows/platformio.yml)
+
 # SODAQ - Universal Tracker
 
 Note: to be able to compile this application you need to add the right board file to your Arduino IDE.
