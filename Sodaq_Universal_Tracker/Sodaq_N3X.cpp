@@ -1024,7 +1024,7 @@ GSMResponseTypes Sodaq_N3X::readResponse(char* outBuffer, size_t outMaxSize, con
         }
 
         if (startsWith(STR_RESPONSE_ERROR, _inputBuffer) ||
-                //startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
+                startsWith(STR_RESPONSE_CME_ERROR, _inputBuffer) ||
                 startsWith(STR_RESPONSE_CMS_ERROR, _inputBuffer)) {
             return GSMResponseError;
         }
