@@ -931,7 +931,7 @@ void delegateNavPvt(NavigationPositionVelocityTimeSolution* NavPvt)
 
     // check that the fix is OK and that it is a 3d fix or GNSS + dead reckoning combined
     if (((NavPvt->flags & GPS_FIX_FLAGS) == GPS_FIX_FLAGS) && ((NavPvt->fixType == 3) || (NavPvt->fixType == 4))) {
-        pendingReportDataRecord.setCourse((constrain(NavPvt->heading, 0, INT32_MAX) * 255) / (360 * 100000)); // scale and range to 0..255
+        pendingReportDataRecord.setCourse((constrain(NavPvt->heading, 0, INT32_MAX) + 50000) / 100000 * 255 / 360); // scale and range to 0..255
         pendingReportDataRecord.setAltitude((int16_t)constrain(NavPvt->hMSL / 1000, INT16_MIN, INT16_MAX)); // mm to m
         pendingReportDataRecord.setLat(NavPvt->lat);
         pendingReportDataRecord.setLong(NavPvt->lon);
