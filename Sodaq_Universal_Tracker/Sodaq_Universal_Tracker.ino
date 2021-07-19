@@ -42,7 +42,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "GpsFixDataRecord.h"
 #include "OverTheAirConfigDataRecord.h"
 #include "GpsFixLiFoRingBuffer.h"
-#include "Sodaq_LSM303AGR.h"
+#include "Sodaq_LSM303AGR_C.h"
 #include "LedColor.h"
 #include "Enums.h"
 #include "CayenneLPP.h"
@@ -109,7 +109,7 @@ RTCZero rtc;
 RTCTimer timer;
 UBlox ublox;
 Time time;
-Sodaq_LSM303AGR accelerometer;
+Sodaq_LSM303AGR_C accelerometer;
 Network network;
 
 #define DEFAULT_APN "nb.inetd.gdsp" // APN Vodafone NB-IoT
@@ -221,6 +221,8 @@ void setup()
     initRtc();
 
     Wire.begin();
+
+    accelerometer.Init();
 
     // init params
     params.setConfigResetCallback(onConfigReset);
@@ -539,19 +541,14 @@ void initOnTheMove()
         GCLK_CLKCTRL_GEN_GCLK1 |
         GCLK_CLKCTRL_CLKEN;
 
-    accelerometer.enableAccelerometer(
-        Sodaq_LSM303AGR::LowPowerMode,
-        Sodaq_LSM303AGR::HrNormalLowPower10Hz,
-        Sodaq_LSM303AGR::XYZ,
-        Sodaq_LSM303AGR::Scale8g,
-        true);
+    accelerometer.enableAccelerometer();
     sodaq_wdt_safe_delay(100);
 
     accelerometer.enableInterrupt1(
-        Sodaq_LSM303AGR::XHigh | Sodaq_LSM303AGR::XLow | Sodaq_LSM303AGR::YHigh | Sodaq_LSM303AGR::YLow | Sodaq_LSM303AGR::ZHigh | Sodaq_LSM303AGR::ZLow,
+        Sodaq_LSM303AGR_C::XHigh | Sodaq_LSM303AGR_C::XLow | Sodaq_LSM303AGR_C::YHigh | Sodaq_LSM303AGR_C::YLow | Sodaq_LSM303AGR_C::ZHigh | Sodaq_LSM303AGR_C::ZLow,
         params.getAccelerationPercentage() * 8.0 / 100.0,
         params.getAccelerationDuration(),
-        Sodaq_LSM303AGR::MovementRecognition);
+        Sodaq_LSM303AGR_C::MovementRecognition);
 }
 
 /**
@@ -1095,7 +1092,7 @@ void setAccelerometerTempSensorActive(bool on)
     }
 
     if (on) {
-        accelerometer.enableAccelerometer(Sodaq_LSM303AGR::LowPowerMode, Sodaq_LSM303AGR::HrNormalLowPower100Hz, Sodaq_LSM303AGR::XYZ, Sodaq_LSM303AGR::Scale2g, true);
+        accelerometer.enableAccelerometer();
         sodaq_wdt_safe_delay(30); // should be enough for initilization and 2 measurement periods
     }
     else {
