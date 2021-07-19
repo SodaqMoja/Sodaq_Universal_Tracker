@@ -43,6 +43,9 @@ public:
         LSM303C
     };
 
+    Sodaq_LSM303AGR     lsm303agr;
+    Sodaq_LSM303C       lsm303c;
+
     Sodaq_LSM303AGR_C(TwoWire &wire = Wire);
 
     void Init();

@@ -1,12 +1,13 @@
 #include <Arduino.h>
 #include <math.h>
 #include "Sodaq_LSM303AGR_C.h"
+#include <typeinfo>
 
-Sodaq_LSM303AGR     Sodaq_LSM303AGR;
-Sodaq_LSM303C       Sodaq_LSM303C;
+#define ERRORMESSAGE    SerialUSB.println("Unsupported accelerometer");
 
 Sodaq_LSM303AGR_C::Sodaq_LSM303AGR_C(TwoWire &wire) : _wire(wire)
 {
+    
 }
 
 void Sodaq_LSM303AGR_C::Init()
@@ -15,7 +16,6 @@ void Sodaq_LSM303AGR_C::Init()
     if(Wire.endTransmission() == 0)
     {
         _lsm303Variant = LSM303C;
-        SerialUSB.println("FOUND LSM303C");
     }
     else
     {
@@ -23,7 +23,6 @@ void Sodaq_LSM303AGR_C::Init()
         if(Wire.endTransmission() == 0)
         {
             _lsm303Variant = LSM303AGR;
-            SerialUSB.println("FOUND LSM303AGR");
         }
         else
         {
@@ -38,13 +37,13 @@ int8_t Sodaq_LSM303AGR_C::getTemperature()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            temp = Sodaq_LSM303AGR.getTemperature();
+            temp = lsm303agr.getTemperature();
         break;
         case LSM303C:
-            temp = Sodaq_LSM303C.getTemperature();
+            temp = lsm303c.getTemperature();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 
@@ -56,13 +55,13 @@ void Sodaq_LSM303AGR_C::enableAccelerometer()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.enableAccelerometer();
+            lsm303agr.enableAccelerometer();
         break;
         case LSM303C:
-            Sodaq_LSM303C.enableAccelerometer();
+            lsm303c.enableAccelerometer();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -72,13 +71,13 @@ void Sodaq_LSM303AGR_C::enableMagnetometer()
    switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.enableMagnetometer();
+            lsm303agr.enableMagnetometer();
         break;
         case LSM303C:
-            Sodaq_LSM303C.enableMagnetometer();
+            lsm303c.enableMagnetometer();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -88,13 +87,13 @@ void Sodaq_LSM303AGR_C::disableAccelerometer()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.disableAccelerometer();
+            lsm303agr.disableAccelerometer();
         break;
         case LSM303C:
-            Sodaq_LSM303C.disableAccelerometer();
+            lsm303c.disableAccelerometer();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -104,13 +103,13 @@ void Sodaq_LSM303AGR_C::disableMagnetometer()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.disableMagnetometer();
+            lsm303agr.disableMagnetometer();
         break;
         case LSM303C:
-            Sodaq_LSM303C.disableMagnetometer();
+            lsm303c.disableMagnetometer();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -120,13 +119,13 @@ void Sodaq_LSM303AGR_C::rebootAccelerometer()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.rebootAccelerometer();
+            lsm303agr.rebootAccelerometer();
         break;
         case LSM303C:
-            Sodaq_LSM303C.rebootAccelerometer();
+            lsm303c.rebootAccelerometer();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -136,13 +135,13 @@ void Sodaq_LSM303AGR_C::rebootMagnetometer()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.rebootMagnetometer();
+            lsm303agr.rebootMagnetometer();
         break;
         case LSM303C:
-            Sodaq_LSM303C.rebootMagnetometer();
+            lsm303c.rebootMagnetometer();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -152,13 +151,13 @@ void Sodaq_LSM303AGR_C::enableInterrupt1(uint8_t axesEvents, double threshold, u
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.enableInterrupt1(axesEvents, threshold, duration, (Sodaq_LSM303AGR::InterruptMode)interruptMode);
+            lsm303agr.enableInterrupt1(axesEvents, threshold, duration, (Sodaq_LSM303AGR::InterruptMode)interruptMode);
         break;
         case LSM303C:
-            Sodaq_LSM303C.enableInterrupt1(axesEvents, threshold, duration, (Sodaq_LSM303C::InterruptMode)interruptMode);
+            lsm303c.enableInterrupt1(axesEvents, threshold, duration, (Sodaq_LSM303C::InterruptMode)interruptMode);
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -168,13 +167,13 @@ void Sodaq_LSM303AGR_C::disableInterrupt1()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.disableInterrupt1();
+            lsm303agr.disableInterrupt1();
         break;
         case LSM303C:
-            Sodaq_LSM303C.disableInterrupt1();
+            lsm303c.disableInterrupt1();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -184,13 +183,13 @@ void Sodaq_LSM303AGR_C::enableInterrupt2(uint8_t axesEvents, double threshold, u
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.enableInterrupt2(axesEvents, threshold, duration, (Sodaq_LSM303AGR::InterruptMode)interruptMode);
+            lsm303agr.enableInterrupt2(axesEvents, threshold, duration, (Sodaq_LSM303AGR::InterruptMode)interruptMode);
         break;
         case LSM303C:
-            Sodaq_LSM303C.enableInterrupt2(axesEvents, threshold, duration, (Sodaq_LSM303C::InterruptMode)interruptMode);
+            lsm303c.enableInterrupt2(axesEvents, threshold, duration, (Sodaq_LSM303C::InterruptMode)interruptMode);
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -200,13 +199,13 @@ void Sodaq_LSM303AGR_C::disableInterrupt2()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.disableInterrupt2();
+            lsm303agr.disableInterrupt2();
         break;
         case LSM303C:
-            Sodaq_LSM303C.disableInterrupt2();
+            lsm303c.disableInterrupt2();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -216,13 +215,13 @@ void Sodaq_LSM303AGR_C::enableMagnetometerInterrupt(uint8_t magAxesEvents, doubl
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.enableMagnetometerInterrupt(magAxesEvents, threshold, highOnInterrupt);
+            lsm303agr.enableMagnetometerInterrupt(magAxesEvents, threshold, highOnInterrupt);
         break;
         case LSM303C:
-            Sodaq_LSM303C.enableMagnetometerInterrupt( magAxesEvents, threshold, highOnInterrupt);
+            lsm303c.enableMagnetometerInterrupt( magAxesEvents, threshold, highOnInterrupt);
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -232,13 +231,13 @@ void Sodaq_LSM303AGR_C::disableMagnetometerInterrupt()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            Sodaq_LSM303AGR.disableMagnetometerInterrupt();
+            lsm303agr.disableMagnetometerInterrupt();
         break;
         case LSM303C:
-            Sodaq_LSM303C.disableMagnetometerInterrupt();
+            lsm303c.disableMagnetometerInterrupt();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
 }
@@ -249,13 +248,13 @@ double Sodaq_LSM303AGR_C::getX()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            result = Sodaq_LSM303AGR.getX();
+            result = lsm303agr.getX();
         break;
         case LSM303C:
-            result = Sodaq_LSM303C.getX();
+            result = lsm303c.getX();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
     return result;
@@ -267,13 +266,13 @@ double Sodaq_LSM303AGR_C::getY()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            result = Sodaq_LSM303AGR.getY();
+            result = lsm303agr.getY();
         break;
         case LSM303C:
-            result = Sodaq_LSM303C.getY();
+            result = lsm303c.getY();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
     return result;
@@ -285,13 +284,13 @@ double Sodaq_LSM303AGR_C::getZ()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            result = Sodaq_LSM303AGR.getZ();
+            result = lsm303agr.getZ();
         break;
         case LSM303C:
-            result = Sodaq_LSM303C.getZ();
+            result = lsm303c.getZ();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
     return result;
@@ -303,13 +302,13 @@ double Sodaq_LSM303AGR_C::getMagX()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            result = Sodaq_LSM303AGR.getMagX();
+            result = lsm303agr.getMagX();
         break;
         case LSM303C:
-            result = Sodaq_LSM303C.getMagX();
+            result = lsm303c.getMagX();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
     return result;
@@ -321,13 +320,13 @@ double Sodaq_LSM303AGR_C::getMagY()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            result = Sodaq_LSM303AGR.getMagY();
+            result = lsm303agr.getMagY();
         break;
         case LSM303C:
-            result = Sodaq_LSM303C.getMagY();
+            result = lsm303c.getMagY();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
     return result;
@@ -339,13 +338,13 @@ double Sodaq_LSM303AGR_C::getMagZ()
     switch(_lsm303Variant)
     {
         case LSM303AGR:
-            result = Sodaq_LSM303AGR.getMagZ();
+            result = lsm303agr.getMagZ();
         break;
         case LSM303C:
-            result = Sodaq_LSM303C.getMagZ();
+            result = lsm303c.getMagZ();
         break;
         default:
-            SerialUSB.println("Unsupported accelerometer");
+            ERRORMESSAGE;
         break;
     }
     return result;
