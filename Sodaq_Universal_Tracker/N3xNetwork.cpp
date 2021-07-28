@@ -181,6 +181,11 @@ bool N3xNetwork::getCCID(char* buffer, size_t size)
     return n3x.getCCID(buffer, size);
 }
 
+bool N3xNetwork::getIMSI(char* buffer, size_t size)
+{
+    return n3x.getIMSI(buffer, size);
+}
+
 bool N3xNetwork::getModuleVersion(char* buffer, size_t size)
 {
     return n3x.getFirmwareRevision(buffer, size);
