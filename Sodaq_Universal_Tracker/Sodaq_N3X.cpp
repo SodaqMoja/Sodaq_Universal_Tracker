@@ -33,7 +33,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "Sodaq_wdt.h"
 #include "time.h"
 
-//#define DEBUG
+#define DEBUG
 
 #define ATTACH_TIMEOUT          180000
 #define ATTACH_NEED_REBOOT      40000
