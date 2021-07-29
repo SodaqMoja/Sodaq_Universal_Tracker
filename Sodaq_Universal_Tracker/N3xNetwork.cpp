@@ -101,6 +101,11 @@ bool N3xNetwork::setActive(bool on, bool needCheckConnection)
         return true;
     }
 
+    if (!needCheckConnection) {
+        n3x.on();
+        return true;
+    }
+
     success = n3x.connect(params.getApn(), params.getForceOperator(), params.getBand());
     if (!success) {
         n3x.off();
