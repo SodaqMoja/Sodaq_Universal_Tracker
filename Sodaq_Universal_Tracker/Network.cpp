@@ -396,6 +396,10 @@ const char* Network::getIMSI()
                 success = n2xNetwork.getIMSI(tmpBuffer, sizeof(tmpBuffer));
                 break;
             }
+            case NETWORK_TYPE_NBIOT_N3: {
+                success = n3xNetwork.getIMSI(tmpBuffer, sizeof(tmpBuffer));
+                break;
+            }
             case NETWORK_TYPE_NBIOT_R4:
             case NETWORK_TYPE_LTEM_R4:
             case NETWORK_TYPE_2G_R4: {

@@ -294,6 +294,20 @@ bool Sodaq_N3X::getCCID(char* buffer, size_t size)
     return (readResponse(buffer, size, "+CCID: ") == GSMResponseOK) && (strlen(buffer) > 0);
 }
 
+// Gets the International Mobile Subscriber Identity
+// Should be provided with a buffer of at least 21 bytes.
+// Returns true if successful.
+bool Sodaq_N3X::getIMSI(char* buffer, size_t size)
+{
+    if (buffer == NULL || size < 20 + 1) {
+        return false;
+    }
+
+    println("AT+CIMI");
+
+    return (readResponse(buffer, size, NULL) == GSMResponseOK) && (strlen(buffer) > 0);
+}
+
 bool Sodaq_N3X::getCellId(uint16_t* tac, uint32_t* cid)
 {
     char responseBuffer[64];
