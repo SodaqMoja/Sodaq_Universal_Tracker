@@ -110,8 +110,7 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
     }
 
     if (!needCheckConnection) {
-        r4x.on();
-        return true;
+        return r4x.on();
     }
 
     success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
