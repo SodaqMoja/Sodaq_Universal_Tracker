@@ -62,7 +62,7 @@ public:
 
     void sleep();
 
-    bool setActive(bool on);
+    bool setActive(bool on, bool needCheckConnection = true);
 
     void setNetworkType(NetworkType type);
 

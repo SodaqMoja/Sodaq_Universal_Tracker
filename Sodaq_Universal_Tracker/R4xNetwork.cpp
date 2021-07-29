@@ -109,6 +109,10 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
         return true;
     }
 
+    if (!needCheckConnection) {
+        return r4x.on();
+    }
+
     success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
     if (!success) {
         r4x.off();
@@ -119,12 +123,12 @@ bool R4xNetwork::setActive(bool on, bool needCheckConnection)
         // try just one last time
         success = r4x.connect(params.getApn(), _urat, (MNOProfile)params.getMnoProfile(), params.getForceOperator(), params.getBand(), params.getBand());
     }
-    
+
     // Turn off PSM and eDRX
     r4x.execCommand("AT+CPSMS=0");
     r4x.execCommand("AT+CEDRXS=0");
     r4x.execCommand("AT+UPSV=0");
-    
+
     return success;
 }
 

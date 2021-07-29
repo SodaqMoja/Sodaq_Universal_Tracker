@@ -101,6 +101,10 @@ bool N2xNetwork::setActive(bool on, bool needCheckConnection)
         return true;
     }
 
+    if (!needCheckConnection) {
+        return n2x.on();
+    }
+
     success = n2x.connect(params.getApn(), NULL, params.getForceOperator(), params.getBand());
     if (!success) {
         n2x.off();

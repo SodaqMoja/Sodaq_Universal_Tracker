@@ -217,22 +217,22 @@ void Network::sleep()
     }
 }
 
-bool Network::setActive(bool on)
+bool Network::setActive(bool on, bool needCheckConnection)
 {
     bool success = false;
     switch (_networkType) {
         case NETWORK_TYPE_NBIOT_N2: {
-            success = n2xNetwork.setActive(on);
+            success = n2xNetwork.setActive(on, needCheckConnection);
             break;
         }
         case NETWORK_TYPE_NBIOT_N3: {
-            success = n3xNetwork.setActive(on);
+            success = n3xNetwork.setActive(on, needCheckConnection);
             break;
         }
         case NETWORK_TYPE_NBIOT_R4:
         case NETWORK_TYPE_LTEM_R4:
         case NETWORK_TYPE_2G_R4: {
-            success = r4xNetwork.setActive(on);
+            success = r4xNetwork.setActive(on, needCheckConnection);
             break;
         }
         case NETWORK_TYPE_LORA: {
