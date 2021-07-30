@@ -10,7 +10,6 @@ variables:
   BOARD3: SODAQ:samd:sodaq_sff
 
 stages:
-  - build_1_6_19
   - build_1_6_20
   - build_1_8_6
 
@@ -22,22 +21,6 @@ before_script:
   - arduino --pref sketchbook.path=$PWD --save-prefs
   - arduino --pref compiler.warning_level=more --save-prefs
   - arduino --pref boardsmanager.additional.urls=${JSONURL} --save-prefs
-
-build_1_6_19:
-  stage: build_1_6_19
-  artifacts:
-    paths:
-      - $BINDIR/${TARGET}*.bin
-  script:
-    #- env
-    #- pwd
-    - rm -rf ${BINDIR}
-    - mkdir ${BINDIR}
-    - arduino --install-boards "SODAQ:samd:1.6.19"
-    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD1} ${TARGET}/${TARGET}.ino
-    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD2} ${TARGET}/${TARGET}.ino
-    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD3} ${TARGET}/${TARGET}.ino
-    - mv ${BINDIR}/${TARGET}.ino.bin ${BINDIR}/${TARGET}-$(git describe --tags --dirty 2> /dev/null).bin
 
 build_1_6_20:
   stage: build_1_6_20
