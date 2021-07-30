@@ -3,7 +3,18 @@
 #include "Sodaq_LSM303AGR_C.h"
 #include <typeinfo>
 
-#define ERRORMESSAGE    SerialUSB.println("Unsupported accelerometer");
+#define DEBUG
+
+#ifdef DEBUG
+#define debugPrintLn(...) { if (this->_diagStream) this->_diagStream->println(__VA_ARGS__); }
+#define debugPrint(...) { if (this->_diagStream) this->_diagStream->print(__VA_ARGS__); }
+#warning "Debug mode is ON"
+#else
+#define debugPrintLn(...)
+#define debugPrint(...)
+#endif
+
+#define ERRORMESSAGE    debugPrintLn("Unsupported accelerometer");
 
 Sodaq_LSM303AGR_C::Sodaq_LSM303AGR_C(TwoWire &wire) : _wire(wire)
 {

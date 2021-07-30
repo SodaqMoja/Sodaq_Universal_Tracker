@@ -50,6 +50,10 @@ public:
 
     void Init(Stream& stream);
 
+    // Sets the optional "Diagnostics and Debug" stream.
+    void setDiag(Stream& stream) { _diagStream = &stream; }
+    void setDiag(Stream* stream) { _diagStream = stream; }
+
     int8_t getTemperature();
     void enableAccelerometer();
     void disableAccelerometer();
@@ -77,6 +81,9 @@ public:
 protected:
     TwoWire &_wire;
     LSM303Variant _lsm303Variant = LSM303_Undefined;
+
+    // The (optional) stream to show debug information.
+    Stream* _diagStream;
 };
 
 #endif
