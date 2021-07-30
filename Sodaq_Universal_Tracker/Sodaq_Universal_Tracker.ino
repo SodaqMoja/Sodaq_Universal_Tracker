@@ -222,7 +222,7 @@ void setup()
 
     Wire.begin();
 
-    accelerometer.Init();
+    accelerometer.Init(CONSOLE_STREAM);
 
     // init params
     params.setConfigResetCallback(onConfigReset);

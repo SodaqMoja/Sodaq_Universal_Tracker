@@ -48,7 +48,7 @@ public:
 
     Sodaq_LSM303AGR_C(TwoWire &wire = Wire);
 
-    void Init();
+    void Init(Stream& stream);
 
     int8_t getTemperature();
     void enableAccelerometer();
