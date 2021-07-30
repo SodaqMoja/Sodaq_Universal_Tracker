@@ -12,6 +12,7 @@ variables:
 stages:
   - build_1_6_19
   - build_1_6_20
+  - build_1_8_6
 
 before_script:
   #- env
@@ -53,3 +54,20 @@ build_1_6_20:
     - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD2} ${TARGET}/${TARGET}.ino
     - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD3} ${TARGET}/${TARGET}.ino
     - mv ${BINDIR}/${TARGET}.ino.bin ${BINDIR}/${TARGET}-$(git describe --tags --dirty 2> /dev/null).bin
+
+build_1_8_6:
+  stage: build_1_8_6
+  artifacts:
+    paths:
+      - $BINDIR/${TARGET}*.bin
+  script:
+    #- env
+    #- pwd
+    - rm -rf ${BINDIR}
+    - mkdir ${BINDIR}
+    - arduino --install-boards "SODAQ:samd:1.8.6"
+    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD1} ${TARGET}/${TARGET}.ino
+    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD2} ${TARGET}/${TARGET}.ino
+    - arduino --pref build.path=${BINDIR} --verbose --verify --board ${BOARD3} ${TARGET}/${TARGET}.ino
+    - mv ${BINDIR}/${TARGET}.ino.bin ${BINDIR}/${TARGET}-$(git describe --tags --dirty 2> /dev/null).bin
+
