@@ -222,7 +222,7 @@ void setup()
 
     Wire.begin();
 
-    accelerometer.Init();
+    accelerometer.Init(CONSOLE_STREAM);
 
     // init params
     params.setConfigResetCallback(onConfigReset);
@@ -250,6 +250,7 @@ void setup()
     network.init(MODEM_STREAM, updateConfigOverTheAir, getNow, INIT_SHOW_CONSOLE_MESSAGES, INIT_JOIN);
 
     accelerometer.disableMagnetometer();
+    accelerometer.setDiag(DEBUG_STREAM);
     pinMode(MAG_INT, OUTPUT);
     digitalWrite(MAG_INT, LOW);
     if (params.getAccelerationPercentage() > 0) {
