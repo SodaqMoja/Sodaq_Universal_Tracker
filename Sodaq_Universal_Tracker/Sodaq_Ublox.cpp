@@ -418,12 +418,12 @@ int Sodaq_Ublox::socketCloseAll() {
     return closedCount;
 }
 
-size_t Sodaq_Ublox::socketGetPendingBytes(uint8_t socketID)
+size_t Sodaq_Ublox::socketGetPendingBytes(int8_t socketID)
 {
     return _socketPendingBytes[socketID];
 }
 
-bool Sodaq_Ublox::socketHasPendingBytes(uint8_t socketID)
+bool Sodaq_Ublox::socketHasPendingBytes(int8_t socketID)
 {
     return socketGetPendingBytes(socketID) > 0;
 }

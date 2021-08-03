@@ -85,6 +85,8 @@ POSSIBILITY OF SUCH DAMAGE.
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) __attribute__((always_inline));
 static inline bool is_timedout(uint32_t from, uint32_t nr_ms) { return (millis() - from) > nr_ms; }
 
+static inline bool is_socketID_valid(int8_t socketID) { return ((socketID >= 0) && (socketID < SODAQ_UBLOX_SOCKET_COUNT)); }
+
 static uint8_t httpRequestMapping[] = {
     4, // 0 POST
     1, // 1 GET
@@ -833,9 +835,17 @@ bool Sodaq_R4X::setVerboseErrors(bool on)
 * Sockets
 *****************************************************************************/
 
-bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
+bool Sodaq_R4X::socketClose(int8_t socketID, bool async)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     (void)socketFlush(socketID);
+
+    if (socketIsClosed(socketID)) {
+        return true;
+    }
 
     print("AT+USOCL=");
     print(socketID);
@@ -859,8 +869,12 @@ bool Sodaq_R4X::socketClose(uint8_t socketID, bool async)
     return true;
 }
 
-bool Sodaq_R4X::socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort)
+bool Sodaq_R4X::socketConnect(int8_t socketID, const char* remoteHost, const uint16_t remotePort)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     print("AT+USOCO=");
     print(socketID);
     print(",\"");
@@ -922,15 +936,19 @@ int Sodaq_R4X::socketCreate(uint16_t localPort, Protocols protocol)
  * \returns false if wrong answer from AT+USOCTL
  * \returns false if timed out
  */
-bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
+bool Sodaq_R4X::socketFlush(int8_t socketID, uint32_t timeout)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     uint32_t start = millis();
 
     while (!is_timedout(start, timeout) && !_socketClosed[socketID]) {
         print("AT+USOCTL=");
         print(socketID);
         println(",11");
-        
+
         char buffer[32];
         if (readResponse(buffer, sizeof(buffer), "+USOCTL: ") != GSMResponseOK) {
             /* We did not get an OK.
@@ -943,7 +961,7 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
                 return false;
             }
         }
-        
+
         int pendingBytes = 0;
         if (sscanf(buffer, "%*d,11,%d", &pendingBytes) != 1) {
             return false;
@@ -968,7 +986,7 @@ bool Sodaq_R4X::socketFlush(uint8_t socketID, uint32_t timeout)
     return false;
 }
 
-bool Sodaq_R4X::socketIsClosed(uint8_t socketID)
+bool Sodaq_R4X::socketIsClosed(int8_t socketID)
 {
     return _socketClosed[socketID];
 }
@@ -976,8 +994,12 @@ bool Sodaq_R4X::socketIsClosed(uint8_t socketID)
 /*
  * Read a buffer from a TCP socket
  */
-size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
+size_t Sodaq_R4X::socketRead(int8_t socketID, uint8_t* buffer, size_t size)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
         debugPrintln("[R4X] ERROR: Reading from socket without bytes available");
@@ -1031,8 +1053,12 @@ size_t Sodaq_R4X::socketRead(uint8_t socketID, uint8_t* buffer, size_t size)
 /**
  * Read a buffer from a UDP socket
  */
-size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
+size_t Sodaq_R4X::socketReceive(int8_t socketID, uint8_t* buffer, size_t size)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     if (!socketHasPendingBytes(socketID)) {
         // no URC has happened, no socket to read
         debugPrintln("[R4X] ERROR: Reading from socket without bytes available");
@@ -1088,9 +1114,13 @@ size_t Sodaq_R4X::socketReceive(uint8_t socketID, uint8_t* buffer, size_t size)
 /**
  * Write a buffer to a UDP socket
  */
-size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uint16_t remotePort,
+size_t Sodaq_R4X::socketSend(int8_t socketID, const char* remoteHost, const uint16_t remotePort,
                              const uint8_t* buffer, size_t size)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     if (size > SODAQ_MAX_SEND_MESSAGE_SIZE) {
         debugPrintln("[R4X] ERROR: Message exceeded maximum size!");
         return 0;
@@ -1098,6 +1128,12 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
 
     if (!enableHexMode()) {
         return 0;
+    }
+
+    if (_socketClosed[socketID]) {
+        if (!socketConnect(socketID, remoteHost, remotePort)) {
+            return 0;
+        }
     }
 
     /* Show the socket error
@@ -1138,13 +1174,17 @@ size_t Sodaq_R4X::socketSend(uint8_t socketID, const char* remoteHost, const uin
     return sentLength;
 }
 
-bool Sodaq_R4X::socketSetR4KeepAlive(uint8_t socketID)
+bool Sodaq_R4X::socketSetR4KeepAlive(int8_t socketID)
 {
     return socketSetR4Option(socketID, 65535, 8, 1);
 }
 
-bool Sodaq_R4X::socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2)
+bool Sodaq_R4X::socketSetR4Option(int8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     print("AT+USOSO=");
     print(socketID);
     print(',');
@@ -1165,8 +1205,12 @@ bool Sodaq_R4X::socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t opt
     return (readResponse() == GSMResponseOK);
 }
 
-bool Sodaq_R4X::socketWaitForClose(uint8_t socketID, uint32_t timeout)
+bool Sodaq_R4X::socketWaitForClose(int8_t socketID, uint32_t timeout)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     uint32_t startTime = millis();
 
     while (isAlive() && !socketIsClosed(socketID) && !is_timedout(startTime, timeout)) {
@@ -1179,8 +1223,12 @@ bool Sodaq_R4X::socketWaitForClose(uint8_t socketID, uint32_t timeout)
 /**
  * Are there pending bytes on the TCP socket?
  */
-bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
+bool Sodaq_R4X::socketWaitForRead(int8_t socketID, uint32_t timeout)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
@@ -1212,8 +1260,12 @@ bool Sodaq_R4X::socketWaitForRead(uint8_t socketID, uint32_t timeout)
 /**
  * Are there pending bytes on the UDP socket?
  */
-bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
+bool Sodaq_R4X::socketWaitForReceive(int8_t socketID, uint32_t timeout)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     if (socketHasPendingBytes(socketID)) {
         return true;
     }
@@ -1245,8 +1297,12 @@ bool Sodaq_R4X::socketWaitForReceive(uint8_t socketID, uint32_t timeout)
 /**
  * Write a buffer to a TCP socket
  */
-size_t Sodaq_R4X::socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size)
+size_t Sodaq_R4X::socketWrite(int8_t socketID, const uint8_t* buffer, size_t size)
 {
+    if (!is_socketID_valid(socketID)) {
+        return false;
+    }
+
     if (!enableHexMode()) {
         return 0;
     }
