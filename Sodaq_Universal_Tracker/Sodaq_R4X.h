@@ -214,29 +214,29 @@ public:
 
     int    socketCreate(uint16_t localPort = 0, Protocols protocol = UDP);
 
-    bool   socketSetR4KeepAlive(uint8_t socketID);
-    bool   socketSetR4Option(uint8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2 = 0);
+    bool   socketSetR4KeepAlive(int8_t socketID);
+    bool   socketSetR4Option(int8_t socketID, uint16_t level, uint16_t optName, uint32_t optValue, uint32_t optValue2 = 0);
 
     // Required for TCP, optional for UDP (for UDP socketConnect() + socketWrite() == socketSend())
-    bool   socketConnect(uint8_t socketID, const char* remoteHost, const uint16_t remotePort);
-    size_t socketWrite(uint8_t socketID, const uint8_t* buffer, size_t size);
+    bool   socketConnect(int8_t socketID, const char* remoteHost, const uint16_t remotePort);
+    size_t socketWrite(int8_t socketID, const uint8_t* buffer, size_t size);
 
     // TCP only
-    bool   socketWaitForRead(uint8_t socketID, uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT);
-    size_t socketRead(uint8_t socketID, uint8_t* buffer, size_t length);
+    bool   socketWaitForRead(int8_t socketID, uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT);
+    size_t socketRead(int8_t socketID, uint8_t* buffer, size_t length);
 
     // UDP only
-    size_t socketSend(uint8_t socketID,
+    size_t socketSend(int8_t socketID,
             const char* remoteHost, const uint16_t remotePort,
             const uint8_t* buffer, size_t size);
-    bool   socketWaitForReceive(uint8_t socketID,
+    bool   socketWaitForReceive(int8_t socketID,
             uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT);
-    size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length);
+    size_t socketReceive(int8_t socketID, uint8_t* buffer, size_t length);
 
-    bool   socketClose(uint8_t socketID, bool async = false);
-    bool   socketFlush(uint8_t socketID, uint32_t timeout = 20000);
-    bool   socketIsClosed(uint8_t socketID);
-    bool   socketWaitForClose(uint8_t socketID, uint32_t timeout);
+    bool   socketClose(int8_t socketID, bool async = false);
+    bool   socketFlush(int8_t socketID, uint32_t timeout = 20000);
+    bool   socketIsClosed(int8_t socketID);
+    bool   socketWaitForClose(int8_t socketID, uint32_t timeout);
 
     /******************************************************************************
     * MQTT

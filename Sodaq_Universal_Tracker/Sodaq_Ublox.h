@@ -112,19 +112,19 @@ public:
     *****************************************************************************/
 
     virtual int socketCreate(uint16_t localPort = 0, Protocols protocol = UDP) = 0;
-    virtual bool socketClose(uint8_t socketID, bool async = false) = 0;
+    virtual bool socketClose(int8_t socketID, bool async = false) = 0;
     int    socketCloseAll();
 
     // UDP only
-    virtual size_t socketSend(uint8_t socketID,
+    virtual size_t socketSend(int8_t socketID,
             const char* remoteHost, const uint16_t remotePort,
             const uint8_t* buffer, size_t size) = 0;
-    virtual bool   socketWaitForReceive(uint8_t socketID,
+    virtual bool   socketWaitForReceive(int8_t socketID,
             uint32_t timeout = SODAQ_UBLOX_DEFAULT_SOCKET_TIMEOUT) = 0;
-    virtual size_t socketReceive(uint8_t socketID, uint8_t* buffer, size_t length) = 0;
+    virtual size_t socketReceive(int8_t socketID, uint8_t* buffer, size_t length) = 0;
 
-    size_t socketGetPendingBytes(uint8_t socketID);
-    bool   socketHasPendingBytes(uint8_t socketID);
+    size_t socketGetPendingBytes(int8_t socketID);
+    bool   socketHasPendingBytes(int8_t socketID);
 
     // Timeouts for socket functions
     void   setSocketWriteTimeout(uint32_t t) { _socket_write_timeout = t; }
