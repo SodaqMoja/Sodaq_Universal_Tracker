@@ -295,7 +295,7 @@ public:
     void disableAccelerometer();
     void rebootAccelerometer();
 
-    void enableMagnetometer(MagnetometerMode mode = MagLowPowerMode, MagnetometerODR odr = Hz10, MagnetometerSystemMode systemMode = Single, bool compensateTemp = true, bool enableLPF = true);
+    void enableMagnetometer(MagnetometerMode mode = MagLowPowerMode, MagnetometerODR odr = Hz10, MagnetometerSystemMode systemMode = Continuous, bool compensateTemp = true, bool enableLPF = false);
     void disableMagnetometer();
     void rebootMagnetometer();
 
