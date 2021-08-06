@@ -35,6 +35,8 @@ POSSIBILITY OF SUCH DAMAGE.
 
 #define _BV(bit) (1 << (bit))
 
+#define TEMP_8_BIT_DIV 256
+
 double mapDouble(double x, double in_min, double in_max, double out_min, double out_max)
 {
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
@@ -51,20 +53,9 @@ Sodaq_LSM303AGR::Sodaq_LSM303AGR(TwoWire& wire, uint8_t accelAddress, uint8_t ma
 
 int8_t Sodaq_LSM303AGR::getTemperature()
 {
-    int16_t value = readAccelRegister16Bits(OUT_TEMP_L_A);
+    int16_t value = readAccelRegister16Bits(OUT_TEMP_L_A)/TEMP_8_BIT_DIV + 25.0f;
 
-    if (_accelMode == AccelerometerMode::HighResMode || _accelMode == AccelerometerMode::NormalMode) {
-        value /= pow(2, 6); // 12-bit value
-
-        return value / 4.0f + 25.0f;
-    }
-    else if (_accelMode == AccelerometerMode::LowPowerMode) {
-        value /= pow(2, 8); // 8-bit value
-
-        return value + 25.0f;
-    }
-
-    return 0.0f;
+    return value;
 }
 
 double Sodaq_LSM303AGR::getGsFromScaledValue(int16_t value)
