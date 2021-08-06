@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <math.h>
-#include "Sodaq_LSM303AGR_C.h"
 #include <typeinfo>
+#include "Sodaq_LSM303.h"
 
 #define DEBUG
 
@@ -16,12 +16,9 @@
 
 #define ERRORMESSAGE    debugPrintLn("Unsupported accelerometer");
 
-Sodaq_LSM303AGR_C::Sodaq_LSM303AGR_C(TwoWire &wire) : _wire(wire)
-{
-    
-}
+Sodaq_LSM303::Sodaq_LSM303(TwoWire& wire) : _wire(wire) {}
 
-void Sodaq_LSM303AGR_C::Init(Stream& stream)
+void Sodaq_LSM303::Init(Stream& stream)
 {
     Wire.beginTransmission(Sodaq_LSM303C_ACCEL_ADDRESS);
     if(Wire.endTransmission() == 0)
@@ -45,7 +42,7 @@ void Sodaq_LSM303AGR_C::Init(Stream& stream)
     }
 }
 
-int8_t Sodaq_LSM303AGR_C::getTemperature()
+int8_t Sodaq_LSM303::getTemperature()
 {
     int8_t temp;
     switch(_lsm303Variant)
@@ -64,7 +61,7 @@ int8_t Sodaq_LSM303AGR_C::getTemperature()
     return temp;
 }
 
-void Sodaq_LSM303AGR_C::enableAccelerometer()
+void Sodaq_LSM303::enableAccelerometer()
 {
     switch(_lsm303Variant)
     {
@@ -80,7 +77,7 @@ void Sodaq_LSM303AGR_C::enableAccelerometer()
     }
 }
 
-void Sodaq_LSM303AGR_C::enableMagnetometer()
+void Sodaq_LSM303::enableMagnetometer()
 {
    switch(_lsm303Variant)
     {
@@ -96,7 +93,7 @@ void Sodaq_LSM303AGR_C::enableMagnetometer()
     }
 }
 
-void Sodaq_LSM303AGR_C::disableAccelerometer()
+void Sodaq_LSM303::disableAccelerometer()
 {
     switch(_lsm303Variant)
     {
@@ -112,7 +109,7 @@ void Sodaq_LSM303AGR_C::disableAccelerometer()
     }
 }
 
-void Sodaq_LSM303AGR_C::disableMagnetometer()
+void Sodaq_LSM303::disableMagnetometer()
 {
     switch(_lsm303Variant)
     {
@@ -128,7 +125,7 @@ void Sodaq_LSM303AGR_C::disableMagnetometer()
     }
 }
 
-void Sodaq_LSM303AGR_C::rebootAccelerometer()
+void Sodaq_LSM303::rebootAccelerometer()
 {
     switch(_lsm303Variant)
     {
@@ -144,7 +141,7 @@ void Sodaq_LSM303AGR_C::rebootAccelerometer()
     }
 }
 
-void Sodaq_LSM303AGR_C::rebootMagnetometer()
+void Sodaq_LSM303::rebootMagnetometer()
 {
     switch(_lsm303Variant)
     {
@@ -160,7 +157,7 @@ void Sodaq_LSM303AGR_C::rebootMagnetometer()
     }
 }
 
-void Sodaq_LSM303AGR_C::enableInterrupt1(uint8_t axesEvents, double threshold, uint8_t duration, InterruptMode interruptMode)
+void Sodaq_LSM303::enableInterrupt1(uint8_t axesEvents, double threshold, uint8_t duration, InterruptMode interruptMode)
 {
     switch(_lsm303Variant)
     {
@@ -176,7 +173,7 @@ void Sodaq_LSM303AGR_C::enableInterrupt1(uint8_t axesEvents, double threshold, u
     }
 }
 
-void Sodaq_LSM303AGR_C::disableInterrupt1()
+void Sodaq_LSM303::disableInterrupt1()
 {
     switch(_lsm303Variant)
     {
@@ -192,7 +189,7 @@ void Sodaq_LSM303AGR_C::disableInterrupt1()
     }
 }
 
-void Sodaq_LSM303AGR_C::enableInterrupt2(uint8_t axesEvents, double threshold, uint8_t duration, InterruptMode interruptMode)
+void Sodaq_LSM303::enableInterrupt2(uint8_t axesEvents, double threshold, uint8_t duration, InterruptMode interruptMode)
 {
     switch(_lsm303Variant)
     {
@@ -208,7 +205,7 @@ void Sodaq_LSM303AGR_C::enableInterrupt2(uint8_t axesEvents, double threshold, u
     }
 }
 
-void Sodaq_LSM303AGR_C::disableInterrupt2()
+void Sodaq_LSM303::disableInterrupt2()
 {
     switch(_lsm303Variant)
     {
@@ -224,7 +221,7 @@ void Sodaq_LSM303AGR_C::disableInterrupt2()
     }
 }
 
-void Sodaq_LSM303AGR_C::enableMagnetometerInterrupt(uint8_t magAxesEvents, double threshold, bool highOnInterrupt)
+void Sodaq_LSM303::enableMagnetometerInterrupt(uint8_t magAxesEvents, double threshold, bool highOnInterrupt)
 {
     switch(_lsm303Variant)
     {
@@ -240,7 +237,7 @@ void Sodaq_LSM303AGR_C::enableMagnetometerInterrupt(uint8_t magAxesEvents, doubl
     }
 }
 
-void Sodaq_LSM303AGR_C::disableMagnetometerInterrupt()
+void Sodaq_LSM303::disableMagnetometerInterrupt()
 {
     switch(_lsm303Variant)
     {
@@ -256,7 +253,7 @@ void Sodaq_LSM303AGR_C::disableMagnetometerInterrupt()
     }
 }
 
-double Sodaq_LSM303AGR_C::getX()
+double Sodaq_LSM303::getX()
 {
     double result;
     switch(_lsm303Variant)
@@ -274,7 +271,7 @@ double Sodaq_LSM303AGR_C::getX()
     return result;
 }
 
-double Sodaq_LSM303AGR_C::getY()
+double Sodaq_LSM303::getY()
 {
     double result;
     switch(_lsm303Variant)
@@ -292,7 +289,7 @@ double Sodaq_LSM303AGR_C::getY()
     return result;
 }
 
-double Sodaq_LSM303AGR_C::getZ()
+double Sodaq_LSM303::getZ()
 {
     double result;
     switch(_lsm303Variant)
@@ -310,7 +307,7 @@ double Sodaq_LSM303AGR_C::getZ()
     return result;
 }
 
-double Sodaq_LSM303AGR_C::getMagX()
+double Sodaq_LSM303::getMagX()
 {
     double result;
     switch(_lsm303Variant)
@@ -328,7 +325,7 @@ double Sodaq_LSM303AGR_C::getMagX()
     return result;
 }
 
-double Sodaq_LSM303AGR_C::getMagY()
+double Sodaq_LSM303::getMagY()
 {
     double result;
     switch(_lsm303Variant)
@@ -346,7 +343,7 @@ double Sodaq_LSM303AGR_C::getMagY()
     return result;
 }
 
-double Sodaq_LSM303AGR_C::getMagZ()
+double Sodaq_LSM303::getMagZ()
 {
     double result;
     switch(_lsm303Variant)

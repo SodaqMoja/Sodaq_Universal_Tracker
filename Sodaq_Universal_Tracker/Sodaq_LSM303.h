@@ -1,5 +1,5 @@
-#ifndef SODAQ_LSM303AGR_C_H_
-#define SODAQ_LSM303AGR_C_H_
+#ifndef SODAQ_LSM303_H_
+#define SODAQ_LSM303_H_
 
 #include <stdint.h>
 #include <Wire.h>
@@ -15,8 +15,7 @@
 #define WHOAMI_ID_A_LSM303C 0b01000001
 #define WHOAMI_ID_M_LSM303C 0b00111101
 
-class Sodaq_LSM303AGR_C
-{
+class Sodaq_LSM303 {
 public:
     enum AxesEvents
     {
@@ -46,11 +45,11 @@ public:
     Sodaq_LSM303AGR     lsm303agr;
     Sodaq_LSM303C       lsm303c;
 
-    Sodaq_LSM303AGR_C(TwoWire &wire = Wire);
 
     void Init(Stream& stream);
 
     // Sets the optional "Diagnostics and Debug" stream.
+    Sodaq_LSM303(TwoWire& wire = Wire);
     void setDiag(Stream& stream) { _diagStream = &stream; }
     void setDiag(Stream* stream) { _diagStream = stream; }
 

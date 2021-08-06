@@ -42,7 +42,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "GpsFixDataRecord.h"
 #include "OverTheAirConfigDataRecord.h"
 #include "GpsFixLiFoRingBuffer.h"
-#include "Sodaq_LSM303AGR_C.h"
+#include "Sodaq_LSM303.h"
 #include "LedColor.h"
 #include "Enums.h"
 #include "CayenneLPP.h"
@@ -109,7 +109,7 @@ RTCZero rtc;
 RTCTimer timer;
 UBlox ublox;
 Time time;
-Sodaq_LSM303AGR_C accelerometer;
+Sodaq_LSM303 accelerometer;
 Network network;
 
 #define DEFAULT_APN "nb.inetd.gdsp" // APN Vodafone NB-IoT
@@ -223,7 +223,6 @@ void setup()
     Wire.begin();
 
     accelerometer.Init(CONSOLE_STREAM);
-
     // init params
     params.setConfigResetCallback(onConfigReset);
     params.read();
@@ -546,10 +545,10 @@ void initOnTheMove()
     sodaq_wdt_safe_delay(100);
 
     accelerometer.enableInterrupt1(
-        Sodaq_LSM303AGR_C::XHigh | Sodaq_LSM303AGR_C::XLow | Sodaq_LSM303AGR_C::YHigh | Sodaq_LSM303AGR_C::YLow | Sodaq_LSM303AGR_C::ZHigh | Sodaq_LSM303AGR_C::ZLow,
+        Sodaq_LSM303::XHigh | Sodaq_LSM303::XLow | Sodaq_LSM303::YHigh | Sodaq_LSM303::YLow | Sodaq_LSM303::ZHigh | Sodaq_LSM303::ZLow,
         params.getAccelerationPercentage() * 8.0 / 100.0,
         params.getAccelerationDuration(),
-        Sodaq_LSM303AGR_C::MovementRecognition);
+        Sodaq_LSM303::MovementRecognition);
 }
 
 /**
