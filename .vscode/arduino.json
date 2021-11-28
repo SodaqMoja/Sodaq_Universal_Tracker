@@ -1,5 +1,4 @@
 {
     "board": "SODAQ:samd:sodaq_sff",
-    "programmer": "SODAQ:atmel_ice",
     "port": "/dev/ttyACM0"
 }
