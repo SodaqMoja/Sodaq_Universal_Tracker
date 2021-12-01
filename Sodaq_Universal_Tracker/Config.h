@@ -89,6 +89,7 @@ struct ConfigParams
     uint8_t _networkType;
 
     uint8_t _gpsMinSatelliteCount;
+    uint8_t _minTimeBetweenFix;
     uint8_t _coordinateUploadCount;
     uint8_t _repeatCount;
 
@@ -123,6 +124,7 @@ public:
     uint8_t getIsLedEnabled() const { return _isLedEnabled; }
     uint8_t getIsOtaaEnabled() const { return _isOtaaEnabled; }
     uint8_t getShouldRetryConnectionOnSend() const { return _shouldRetryConnectionOnSend; }
+    uint16_t getMinTimeBetweenGpsFix() const { return _minTimeBetweenFix; }
 
     const char* getDevAddrOrEUI() const { return _devAddrOrEUI; }
     const char* getAppSKeyOrEUI() const { return _appSKeyOrEUI; }

@@ -158,6 +158,7 @@ volatile bool minuteFlag;
 volatile bool isOnTheMoveActivated;
 volatile uint32_t lastOnTheMoveActivationTimestamp;
 volatile bool updateOnTheMoveTimestampFlag;
+volatile uint32_t lastGpsFixTimestamp;
 
 static uint8_t lastResetCause;
 static bool isGpsInitialized;
