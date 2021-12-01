@@ -54,17 +54,42 @@ typedef struct __attribute__((packed,aligned(1))) NavigationPositionVelocityTime
 } NavigationPositionVelocityTimeSolution;
 
 
+// section 32.10.25.5 (I2C port)
 typedef struct __attribute__((packed,aligned(1))) PortConfigurationDDC {
     uint8_t     portID;
-    uint8_t     reserved0;
+    uint8_t     reserved1;
     uint16_t    txReady;
     uint32_t    mode;
-    uint32_t    reserved3;
+    uint32_t    reserved2;
     uint16_t    inProtoMask;
     uint16_t    outProtoMask;
     uint16_t    flags;
-    uint16_t    reserved5;
+    uint16_t    reserved3;
 } PortConfigurationDDC;
+
+
+// Defined in 32.10.19
+typedef struct __attribute__((packed, aligned(1))) NavigationEngineSetting {
+    uint16_t    mask;
+    uint8_t     dynModel;
+    uint8_t     fixMode;
+    int32_t     fixedAlt;
+    uint32_t    fixedAltVar;
+    int8_t      minElev;
+    uint8_t     drLimit;
+    uint16_t    pDop;
+    uint16_t    tDop;
+    uint16_t    pAcc;
+    uint16_t    tAcc;
+    uint8_t     staticHoldThresh;
+    uint8_t     dgnssTimeout;
+    uint8_t     cnoThreshNumSVs;
+    uint8_t     cnoThresh;
+    uint8_t     reserved1[2];
+    uint16_t    staticHoldMaxDist;
+    uint8_t     utcStandard;
+    uint8_t     reserved2[5];
+} NavigationEngineSetting;
 
 typedef struct __attribute__((packed,aligned(1))) TimePulseParameters {
     uint8_t     tpIdx;
@@ -127,6 +152,9 @@ public:
     //
     bool    getTimePulseParameters(uint8_t tpIdx,TimePulseParameters* tpp);
     bool    getPortConfigurationDDC(PortConfigurationDDC* pcd);
+    //
+    bool    setNavParameters(NavigationEngineSetting *nav);
+    bool    getNavParameters(NavigationEngineSetting *nav);
 
     void    GetPeriodic();
     void    GetPeriodic(int bytes);
@@ -141,6 +169,8 @@ public:
 
     // Debug helper
     void    db_printf(const char *message,...);
+    void    print_buffer();
+    void    printUBX_CFG_NAV5(NavigationEngineSetting nav);
 
     //
     int     process(uint8_t);
