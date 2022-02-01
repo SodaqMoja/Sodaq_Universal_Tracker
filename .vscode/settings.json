@@ -1,6 +1,0 @@
-{
-    "arduino.additionalUrls": "http://downloads.sodaq.net/package_sodaq_avr_index.json,http://downloads.sodaq.net/package_sodaq_samd_index.json",
-    "arduino.enableUSBDetection": true,
-    "arduino.logLevel": "info",
-    "arduino.defaultBaudRate": 9600
-}

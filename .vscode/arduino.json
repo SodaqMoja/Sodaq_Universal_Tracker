@@ -1,5 +1,0 @@
-{
-    "board": "SODAQ:samd:sodaq_one",
-    "port": "/dev/ttyACM0",
-    "sketch": "Sodaq_Universal_Tracker/Sodaq_Universal_Tracker.ino"
-}

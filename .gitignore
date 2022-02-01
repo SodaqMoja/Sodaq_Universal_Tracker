@@ -20,6 +20,8 @@ __vm
 *.vcx*
 Release/
 Debug/
+.vscode/
 
 # Other temp files
 *.bak
+
