@@ -48,7 +48,8 @@ struct ConfigParams
     uint8_t _alternativeFixToHours;
     uint8_t _alternativeFixToMinutes;
     uint8_t _gpsFixTimeout;
-
+    uint16_t _gpsPosAccuracy;
+    uint8_t _gpsDynModel;
     uint8_t _accelerationPercentage;
     uint8_t _accelerationDuration;
     uint8_t _onTheMoveFixInterval;
@@ -88,6 +89,7 @@ struct ConfigParams
     uint8_t _networkType;
 
     uint8_t _gpsMinSatelliteCount;
+    uint8_t _minTimeBetweenFix;
     uint8_t _coordinateUploadCount;
     uint8_t _repeatCount;
 
@@ -112,7 +114,8 @@ public:
     uint8_t getAlternativeFixToMinutes() const { return _alternativeFixToMinutes; }
     uint32_t getAlternativeFixTo() const { return _alternativeFixToHours * 60 * 60 + _alternativeFixToMinutes * 60; }
     uint8_t getGpsFixTimeout() const { return _gpsFixTimeout; }
-
+    uint16_t getGpsPositionAccuracy() const { return _gpsPosAccuracy; }
+    uint8_t getGpsDynamicModel() const { return _gpsDynModel; }
     uint8_t getAccelerationPercentage() const { return _accelerationPercentage; }
     uint8_t getAccelerationDuration() const { return _accelerationDuration; }
     uint8_t getOnTheMoveFixInterval() const { return _onTheMoveFixInterval; }
@@ -121,6 +124,7 @@ public:
     uint8_t getIsLedEnabled() const { return _isLedEnabled; }
     uint8_t getIsOtaaEnabled() const { return _isOtaaEnabled; }
     uint8_t getShouldRetryConnectionOnSend() const { return _shouldRetryConnectionOnSend; }
+    uint16_t getMinTimeBetweenGpsFix() const { return _minTimeBetweenFix; }
 
     const char* getDevAddrOrEUI() const { return _devAddrOrEUI; }
     const char* getAppSKeyOrEUI() const { return _appSKeyOrEUI; }

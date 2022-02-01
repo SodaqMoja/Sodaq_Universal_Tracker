@@ -92,6 +92,8 @@ GPS
   Alt. Fix To (HH)           (afth=): 0
   Alt. Fix To (MM)           (aftm=): 0
   GPS Fix Timeout (sec)      (gft=): 120
+  GPS Postition Accuracy (m) (gpa=): 0
+  GPS Dynamic Model          (gpm=): 0
   Minimum sat count          (sat=): 4
   Num Coords to Upload       (num=): 1
 
@@ -138,7 +140,7 @@ The application is based on the RTCTimer library. At startup the application tri
 
 There is a system watchdog running in case the application hangs it will be restarted by the watchdog. (See library Sodaq\_wdt)
 
-### GPS fixes
+### GPS Fixes
 
 As seen in the configuration menu we allow for two different schedules for GPS fixes based on UTC time. The default could for instance be that we want a GPS fix every 30 minutes during the night, but during the day we want a fix every 5 minutes. In that case we configure the default to be 30 minutes, but the optional fix timer to be 5 minutes from 06:00 UTC to 18:00 UTC.
 
@@ -150,6 +152,33 @@ the best GPS fix found (if any) is used.
 For redundancy we could configure a repeat count. The value of the repeat count tells us to send the Lora frame an additional number of times (default 0) for redundancy.
 
 The Lora frame contains the following data. The minimum frame size is 21 bytes, the maximum frame size 51 bytes, depending on the number of coordinates we have configured to be sent.
+#### GPS Accuracy
+
+There are various ways of controlling how the GPS operates. This will allow you to find a balance between accuracy and power usage.
+The Ublox module has various settings for this and we expose a few of those (not all).
+
+`Minimum sat count` - After a GPS fix is obtained, there is an option to indicate that it needs at least `Minimum sat count` satellites before we accept this. This setting was often used in the past to get a bit more accuracy. You will need at least 3 here, and we suggest that you leave this at 3. If you want a more accurate fix, see `GPS Position Accuracy`.
+
+`GPS Dynamic Model` - The `GPS Dynamic Model` is used to indicate what movement is expected. These are the options:
+```
+0: portable
+2: stationary
+3: pedestrian
+4: automotive
+5: sea
+6: airborne with <1g acceleration
+7: airborne with <2g acceleration
+8: airborne with <4g acceleration
+9: wrist-worn watch (not supported inprotocol versions less than 18)
+10: bike (supported in protocol versions 19.2)
+```
+More details about this can be found in the [ublox documentation](https://www.u-blox.com/sites/default/files/products/documents/u-blox8-M8_ReceiverDescrProtSpec_%28UBX-13003221%29.pdf) in section 32.10.19.1.
+
+
+`GPS Postition Accuracy` - The `GPS Postition Accuracy` setting allows you to set the accuracy of the fix. The u-blox eva-m8 seems to have this default set to 100m. 0 keeps the default. A value above 3 must be provided as the u-blox eva-m8 cannot be more accurate than this. Use this to get a more accurate fix.
+
+`GPS Fix Timeout` - This indicates how long we should try to get a fix. If within this time no fix is gained, we continue to send a network packet without GPS coordinates.
+
 
 ### Band settings
 
@@ -168,17 +197,12 @@ Band Info                (bnd=): 900,800
 ### LoRa Connection
 
 The LoRa communication only starts if the keys are not 0 (0 is the default)
-If 'Retry conn.' is on, then in case the connection to the network is not successful (useful for OTAA), the application will retry to connect the next time there is a pending transmission.
-
-### Temperature
-
-The on-board accelerometer provides temperature delta with 1 degree Celsius resolution. It is not factory calibrated so the offset needs to be set in the application (command "temp" or it can be hardcoded in the code) for each board.
-
-### On-the-move Functionality
-
-The firmware supports, except for the default and alternative fix intervals, a third fix interval that is dependent to movement: if the acceleration on any axis goes over (or below in the case of a negative axis) the acceleration set in Acceleration% parameter for over the set duration, the on-the-move fix interval becomes active until "Timeout" minutes have passed since the last movement detected.
+If `Retry conn.` is on, then in case the connection to the network is not successful (useful for OTAA), the application will retry to connect the next time there is a pending transmission.
 
 ### Message Frame content
+For redundancy we could configure a `repeat count`. The value of the repeat count tells us to send the Lora frame an additional number of times (default 0) for redundancy.
+
+The Lora frame contains the following data. The minimum frame size is 21 bytes, the maximum frame size 51 bytes, depending on the number of coordinates we have configured to be sent.
 
 Note: all values are little endian.
 
@@ -194,12 +218,16 @@ Note: all values are little endian.
 | Course (COG) | uint8 (1) |
 | Number of satellites | uint8 (1) |
 | Time to fix (seconds, FF = no fix, in that case the above position is the last known) | uint8 (1) |
+| Horizontal Accuracy (mm) | uint32 (4) |
+| Vertical Accuracy (mm) | uint32 (4) |
+| GPS FIx Reason 
+0 = Unknown; 1=Setup; \n2=Default Fix Interval; 3 = Alternative fix interval; 4=On The Move Fix | uint8 (1) | 
 | Plus 0 - 3 of the following 10 bytes: |   |
 | Previous fix (seconds ago, FFFF means longer than) | uint16 (2) |
 | Lat | long (4) |
 | Long | long(4) |
 
-### Remote (over the air) re-configuration
+#### Remote (over the air) re-configuration
 
 You can send the following configuration parameters back to the device (as part as the LoRaWAN class A communication protocol)
 
@@ -210,6 +238,32 @@ You can send the following configuration parameters back to the device (as part 
 | From (EPOCH) | long (4) |
 | To (EPOCH) | long (4) |
 | GPS fix timeout in seconds | uint16 (2) |
+
+### Temperature
+
+The on-board accelerometer provides temperature delta with 1 degree Celsius resolution. It is not factory calibrated so the offset needs to be set in the application (command `temp` or it can be hardcoded in the code) for each board.
+
+### On-the-move Functionality
+
+The firmware supports, except for the default and alternative fix intervals, a third fix interval that is dependent to movement: if the acceleration on any axis goes over (or below in the case of a negative axis) the acceleration set in `Acceleration%` parameter for over the set `Acceleration Duration`, then a marker is placed. At each `Fix Interval (min)` it will check if this marker exists and if it was within the `Timeout` period. If so, it will perform a GPS fix and send out a network packet.
+
+The two settings (`timeout` and `fix interval`) can be slightly confusing at the start. The idea is that you can control how many updates are send *after* the device stopped moving. For example, if you set the fix interval to 5, and the timeout to 10 and trigger the movement constantly, then you'll get 2 updates. If you move the device briefly in the first 5 minutes, you'll still get 2 updates. This would help explain that the device has moved, and is now no longer moving. 
+If you only want to send out updates when the device moves, then set both parameters to the same value.
+
+
+### Minimum time between Fixes
+The setting `Minimum time between Fixes` allows you to combine the On-the-move functionality and the GPS fix functionality without getting duplicate messages being send. Getting a GPS fix, and sending out the LoRa packet is quite heavy on the battery consumption, and therefor limiting this can be useful for specific scenario's. This is best explained with an example.
+
+Let's say you have a GPS Fix interval of 30 minutes. This would send an update *every* 30 minutes. Let's say you also set the on-the-move functionality with a Fix Interval of 15 minutes. Let's say the device is always moving, this means the device would send an update *every* 15 minutes.
+With these settings, it would send out an update around 6 times over the course of an hour. Every 15 minutes because of movement, and every 30 minutes because of the GPS fix.
+
+If you set `Minimum time between Fixes` to 15 (minutes), then you would only have received 4 updates.
+
+Internally, this simply works by storing the date/time when the last GPS fix was *initiated* and comparing this to the current date/time minus the `Minimum time between Fixes` setting. If the calculated date/time is later than the last GPS fix, then the update will be send. Otherwise the GPS fix is aborted.
+
+This can have a slightly negative effect when Fix Intervals are set to a somewhat longer time.
+As an example, consider the GPS Fix Interval of 4 hours, and a One-the-move fix interval of 30 minutes. Let's say the device moves for 1.5 hours. So the One-the-move interval performs 3 GPS fixes. Just after the last on-the-move fix, the GPS Fix Interval is triggered. It will compare the last fix and realize that no GPS fix is needed because it has just send out a on-the-move fix. The device does not move anymore. This would mean that it will take another 4 hours before another fix is send out. The time in between receiving a packet is than more than 4 hours.
+
 
 ## License
 
